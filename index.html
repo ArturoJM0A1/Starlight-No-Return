@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cohete</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="game-shell" aria-label="Juego Cohete Metamorfico">
+      <canvas id="gameCanvas" aria-label="Area de juego"></canvas>
+
+      <section id="welcomeScreen" class="screen screen-welcome">
+        <div class="brand-row">
+          <div class="mini-rocket" aria-hidden="true"></div>
+          <span>Cohete</span>
+        </div>
+        <h1>Starlight: No Return</h1>
+        <h3>By: Arturo Juárez Monroy</h3>
+        <p class="lead">
+          Pilota el cohete entre cubos cambiantes, piedras de equilibrio y anillos infinitos.
+          El ritmo alterna calma y tormentas: espera el instante correcto.
+        </p>
+        <div class="instruction-grid" aria-label="Instrucciones">
+          <article>
+            <strong>Mover</strong>
+            <span>Flechas, WASD o arrastra en pantalla.</span>
+          </article>
+          <article>
+            <strong>Esquive inteligente</strong>
+            <span>Espacio o doble toque: el cohete busca una salida rapida si estas en peligro.</span>
+          </article>
+          <article>
+            <strong>Pulso Prisma</strong>
+            <span>E o boton inferior: desintegra lo cercano y empuja piezas magneticas. Es limitado.</span>
+          </article>
+          <article>
+            <strong>Objetivo</strong>
+            <span>Sobrevive, recoge cristales y encadena esquivas perfectas.</span>
+          </article>
+        </div>
+        <div class="welcome-actions">
+          <button id="startButton" class="primary-button">Iniciar viaje</button>
+          <button id="muteButtonIntro" class="ghost-button" aria-pressed="false">Sonido</button>
+        </div>
+      </section>
+
+      <section id="gameOverScreen" class="screen hidden">
+        <div class="brand-row">
+          <div class="mini-rocket" aria-hidden="true"></div>
+          <span>Fin de orbita</span>
+        </div>
+        <h2>El cohete perdio estabilidad</h2>
+        <p id="finalStats" class="lead"></p>
+        <div class="welcome-actions">
+          <button id="restartButton" class="primary-button">Reintentar</button>
+          <button id="homeButton" class="ghost-button">Instrucciones</button>
+        </div>
+      </section>
+
+      <div id="hud" class="hud hidden" aria-live="polite">
+        <div class="hud-panel">
+          <span>Puntos</span>
+          <strong id="scoreValue">0</strong>
+        </div>
+        <div class="hud-panel">
+          <span>Fase</span>
+          <strong id="phaseValue">Calma</strong>
+        </div>
+        <div class="hud-panel energy-panel">
+          <span>Pulso</span>
+          <div id="energyDots" class="energy-dots" aria-label="Cargas de pulso"></div>
+        </div>
+        <div class="hud-panel health-panel">
+          <span>Casco</span>
+          <strong id="healthValue">3</strong>
+        </div>
+      </div>
+
+      <div id="phaseToast" class="phase-toast hidden"></div>
+      <div id="comboToast" class="combo-toast hidden"></div>
+
+      <div class="top-actions">
+        <button id="pauseButton" class="icon-button hidden" title="Pausar" aria-label="Pausar">II</button>
+        <button id="muteButton" class="icon-button hidden" title="Activar o silenciar sonido" aria-label="Sonido">♪</button>
+      </div>
+
+      <div id="touchControls" class="touch-controls hidden" aria-hidden="false">
+        <button id="dashTouch" class="touch-button">Deslizar</button>
+        <button id="pulseTouch" class="touch-button pulse">Pulso</button>
+      </div>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>

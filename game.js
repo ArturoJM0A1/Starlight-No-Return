@@ -1,0 +1,1503 @@
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+  const shell = document.querySelector(".game-shell");
+
+  const welcomeScreen = document.getElementById("welcomeScreen");
+  const gameOverScreen = document.getElementById("gameOverScreen");
+  const hud = document.getElementById("hud");
+  const scoreValue = document.getElementById("scoreValue");
+  const phaseValue = document.getElementById("phaseValue");
+  const healthValue = document.getElementById("healthValue");
+  const energyDots = document.getElementById("energyDots");
+  const phaseToast = document.getElementById("phaseToast");
+  const comboToast = document.getElementById("comboToast");
+  const finalStats = document.getElementById("finalStats");
+  const touchControls = document.getElementById("touchControls");
+  const pauseButton = document.getElementById("pauseButton");
+  const muteButton = document.getElementById("muteButton");
+  const muteButtonIntro = document.getElementById("muteButtonIntro");
+
+  const startButton = document.getElementById("startButton");
+  const restartButton = document.getElementById("restartButton");
+  const homeButton = document.getElementById("homeButton");
+  const dashTouch = document.getElementById("dashTouch");
+  const pulseTouch = document.getElementById("pulseTouch");
+
+  const TAU = Math.PI * 2;
+  const PHASES = [
+    {
+      name: "Calma",
+      duration: 7.5,
+      spawn: 1.2,
+      speed: 0.82,
+      crystals: 0.9,
+      color: "#4ee7d5",
+      toast: "Calma: carga el pulso y estudia las sombras",
+    },
+    {
+      name: "Ascenso",
+      duration: 10,
+      spawn: 0.78,
+      speed: 1,
+      crystals: 0.54,
+      color: "#ffd166",
+      toast: "Ascenso: las formas empiezan a cambiar",
+    },
+    {
+      name: "Tormenta",
+      duration: 12,
+      spawn: 0.47,
+      speed: 1.2,
+      crystals: 0.27,
+      color: "#ff6f91",
+      toast: "Tormenta magnetica: usa el pulso con criterio",
+    },
+    {
+      name: "Respiro",
+      duration: 5.5,
+      spawn: 1.45,
+      speed: 0.74,
+      crystals: 1.12,
+      color: "#8cffb2",
+      toast: "Respiro: reposicionate y recoge cristales",
+    },
+  ];
+
+  let width = 0;
+  let height = 0;
+  let dpr = 1;
+  let lastFrame = 0;
+  let obstacleId = 0;
+  let magnetId = 0;
+  let audioCtx = null;
+  let muted = false;
+
+  const input = {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    pointer: false,
+    pointerX: 0,
+    pointerY: 0,
+    lastTap: 0,
+  };
+
+  const state = {
+    mode: "welcome",
+    paused: false,
+    time: 0,
+    distance: 0,
+    score: 0,
+    combo: 0,
+    best: Number(localStorage.getItem("cohete-metamorfico-best") || 0),
+    health: 3,
+    phaseIndex: 0,
+    phaseTime: 0,
+    spawnTimer: 0.8,
+    crystalTimer: 2.2,
+    shake: 0,
+    flash: 0,
+    obstacles: [],
+    pickups: [],
+    particles: [],
+    ripples: [],
+    floating: [],
+    stars: [],
+  };
+
+  const player = {
+    x: 150,
+    y: 240,
+    r: 23,
+    vx: 0,
+    vy: 0,
+    energy: 3,
+    maxEnergy: 3,
+    dashCooldown: 0,
+    dashTimer: 0,
+    pulseCooldown: 0,
+    invuln: 0,
+    flame: 0,
+    tilt: 0,
+    lastDashVector: { x: 1, y: 0 },
+  };
+
+  function rand(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function dist(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  function normalize(x, y) {
+    const len = Math.hypot(x, y);
+    if (len < 0.001) return { x: 1, y: 0 };
+    return { x: x / len, y: y / len };
+  }
+
+  function currentPhase() {
+    return PHASES[state.phaseIndex % PHASES.length];
+  }
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (!state.stars.length) buildStars();
+    player.x = clamp(player.x || 150, 82, width - 92);
+    player.y = clamp(player.y || height / 2, 96, height - 84);
+  }
+
+  function buildStars() {
+    state.stars = [];
+    const total = Math.round(clamp((width * height) / 8200, 64, 180));
+    const palette = ["#ffffff", "#8cffb2", "#ffd166", "#b8f4ff", "#ff9db5"];
+    for (let i = 0; i < total; i += 1) {
+      state.stars.push({
+        x: Math.random() * Math.max(width, 1),
+        y: Math.random() * Math.max(height, 1),
+        s: rand(0.7, 2.4),
+        speed: rand(0.05, 0.45),
+        twinkle: rand(0, TAU),
+        color: palette[Math.floor(Math.random() * palette.length)],
+      });
+    }
+  }
+
+  function resetGame() {
+    obstacleId = 0;
+    magnetId = 0;
+    Object.assign(state, {
+      mode: "playing",
+      paused: false,
+      time: 0,
+      distance: 0,
+      score: 0,
+      combo: 0,
+      health: 3,
+      phaseIndex: 0,
+      phaseTime: 0,
+      spawnTimer: 0.6,
+      crystalTimer: 1.6,
+      shake: 0,
+      flash: 0,
+      obstacles: [],
+      pickups: [],
+      particles: [],
+      ripples: [],
+      floating: [],
+    });
+    Object.assign(player, {
+      x: clamp(width * 0.22, 105, 220),
+      y: height * 0.52,
+      vx: 0,
+      vy: 0,
+      energy: 3,
+      dashCooldown: 0,
+      dashTimer: 0,
+      pulseCooldown: 0,
+      invuln: 1.2,
+      flame: 0,
+      tilt: 0,
+      lastDashVector: { x: 1, y: 0 },
+    });
+    showPhaseToast(currentPhase().toast);
+    updateHud();
+  }
+
+  function startGame() {
+    ensureAudio();
+    resetGame();
+    welcomeScreen.classList.add("hidden");
+    gameOverScreen.classList.add("hidden");
+    hud.classList.remove("hidden");
+    pauseButton.classList.remove("hidden");
+    muteButton.classList.remove("hidden");
+    touchControls.classList.remove("hidden");
+    shell.classList.remove("paused");
+    pauseButton.textContent = "II";
+    sfx("start");
+  }
+
+  function returnHome() {
+    state.mode = "welcome";
+    state.paused = false;
+    welcomeScreen.classList.remove("hidden");
+    gameOverScreen.classList.add("hidden");
+    hud.classList.add("hidden");
+    pauseButton.classList.add("hidden");
+    muteButton.classList.add("hidden");
+    touchControls.classList.add("hidden");
+    shell.classList.remove("paused");
+  }
+
+  function showGameOver() {
+    state.mode = "gameover";
+    state.paused = false;
+    shell.classList.remove("paused");
+    hud.classList.add("hidden");
+    pauseButton.classList.add("hidden");
+    touchControls.classList.add("hidden");
+    gameOverScreen.classList.remove("hidden");
+    state.best = Math.max(state.best, Math.round(state.score));
+    localStorage.setItem("cohete-metamorfico-best", String(state.best));
+    finalStats.textContent = `Puntuacion: ${Math.round(state.score)} · Mejor marca: ${Math.round(
+      state.best,
+    )} · Distancia: ${Math.round(state.distance)} m`;
+    sfx("fail");
+  }
+
+  function togglePause() {
+    if (state.mode !== "playing") return;
+    state.paused = !state.paused;
+    shell.classList.toggle("paused", state.paused);
+    pauseButton.textContent = state.paused ? "▶" : "II";
+    sfx("click");
+  }
+
+  function toggleMute() {
+    muted = !muted;
+    muteButton.textContent = muted ? "×" : "♪";
+    muteButtonIntro.setAttribute("aria-pressed", String(muted));
+    muteButtonIntro.textContent = muted ? "Silenciado" : "Sonido";
+  }
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) audioCtx = new AudioContext();
+    }
+    if (audioCtx && audioCtx.state === "suspended") {
+      audioCtx.resume();
+    }
+  }
+
+  function sfx(type) {
+    if (muted || !audioCtx) return;
+    const now = audioCtx.currentTime;
+    const master = audioCtx.createGain();
+    master.connect(audioCtx.destination);
+    master.gain.setValueAtTime(0.0001, now);
+
+    const makeOsc = (freq, wave, gain, duration, detune = 0) => {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = wave;
+      osc.frequency.setValueAtTime(freq, now);
+      osc.detune.setValueAtTime(detune, now);
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(gain, now + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(g);
+      g.connect(master);
+      osc.start(now);
+      osc.stop(now + duration + 0.04);
+      return osc;
+    };
+
+    const configs = {
+      start: () => {
+        master.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+        makeOsc(220, "sine", 0.16, 0.24);
+        const up = makeOsc(440, "triangle", 0.09, 0.42);
+        up.frequency.exponentialRampToValueAtTime(760, now + 0.42);
+      },
+      dash: () => {
+        master.gain.exponentialRampToValueAtTime(0.19, now + 0.012);
+        const osc = makeOsc(680, "sawtooth", 0.1, 0.16);
+        osc.frequency.exponentialRampToValueAtTime(180, now + 0.16);
+        makeOsc(1180, "triangle", 0.05, 0.08);
+      },
+      pulse: () => {
+        master.gain.exponentialRampToValueAtTime(0.23, now + 0.012);
+        makeOsc(110, "sine", 0.16, 0.36);
+        const osc = makeOsc(520, "triangle", 0.12, 0.24);
+        osc.frequency.exponentialRampToValueAtTime(980, now + 0.24);
+      },
+      collect: () => {
+        master.gain.exponentialRampToValueAtTime(0.18, now + 0.012);
+        makeOsc(880, "sine", 0.12, 0.12);
+        makeOsc(1320, "triangle", 0.07, 0.2, 7);
+      },
+      hit: () => {
+        master.gain.exponentialRampToValueAtTime(0.22, now + 0.008);
+        const osc = makeOsc(150, "sawtooth", 0.16, 0.26);
+        osc.frequency.exponentialRampToValueAtTime(58, now + 0.26);
+      },
+      fail: () => {
+        master.gain.exponentialRampToValueAtTime(0.22, now + 0.02);
+        const osc = makeOsc(180, "sawtooth", 0.12, 0.6);
+        osc.frequency.exponentialRampToValueAtTime(52, now + 0.6);
+      },
+      click: () => {
+        master.gain.exponentialRampToValueAtTime(0.09, now + 0.006);
+        makeOsc(1040, "square", 0.06, 0.035);
+      },
+      perfect: () => {
+        master.gain.exponentialRampToValueAtTime(0.16, now + 0.012);
+        makeOsc(740, "sine", 0.08, 0.1);
+        makeOsc(1110, "sine", 0.08, 0.18);
+      },
+      empty: () => {
+        master.gain.exponentialRampToValueAtTime(0.09, now + 0.012);
+        makeOsc(125, "triangle", 0.08, 0.14);
+      },
+    };
+
+    (configs[type] || configs.click)();
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+  }
+
+  function vibrate(pattern) {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  }
+
+  function updateHud() {
+    scoreValue.textContent = Math.round(state.score).toLocaleString("es-MX");
+    phaseValue.textContent = currentPhase().name;
+    phaseValue.style.color = currentPhase().color;
+    healthValue.textContent = state.health;
+    energyDots.innerHTML = "";
+    for (let i = 0; i < player.maxEnergy; i += 1) {
+      const dot = document.createElement("span");
+      dot.className = `energy-dot${i < player.energy ? " full" : ""}`;
+      energyDots.appendChild(dot);
+    }
+  }
+
+  function showPhaseToast(message) {
+    phaseToast.textContent = message;
+    phaseToast.classList.remove("hidden");
+    clearTimeout(showPhaseToast.timer);
+    showPhaseToast.timer = setTimeout(() => phaseToast.classList.add("hidden"), 1900);
+  }
+
+  function showComboToast(message) {
+    comboToast.textContent = message;
+    comboToast.classList.remove("hidden");
+    clearTimeout(showComboToast.timer);
+    showComboToast.timer = setTimeout(() => comboToast.classList.add("hidden"), 900);
+  }
+
+  function addFloating(text, x, y, color = "#f8fbff") {
+    state.floating.push({ text, x, y, color, life: 1, max: 1 });
+  }
+
+  function addRipple(x, y, color, radius, widthLine = 3) {
+    state.ripples.push({ x, y, color, radius, widthLine, life: 0.55, max: 0.55 });
+  }
+
+  function addParticles(x, y, color, count, speed = 160, size = 4) {
+    for (let i = 0; i < count; i += 1) {
+      const a = rand(0, TAU);
+      const v = rand(speed * 0.35, speed);
+      state.particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        s: rand(size * 0.45, size),
+        life: rand(0.35, 0.85),
+        max: 0.85,
+        color,
+        rot: rand(0, TAU),
+        spin: rand(-5, 5),
+      });
+    }
+  }
+
+  function makeObstacle(type, x, y, group = null) {
+    const phase = currentPhase();
+    const difficulty = 1 + state.distance / 6200;
+    const baseSpeed = rand(205, 285) * phase.speed * clamp(difficulty, 1, 1.75);
+    const common = {
+      id: obstacleId += 1,
+      type,
+      x,
+      y,
+      baseY: y,
+      vx: -baseSpeed,
+      vy: 0,
+      r: 32,
+      angle: rand(0, TAU),
+      spin: rand(-1.5, 1.5),
+      phase: rand(0, TAU),
+      drift: rand(0.7, 1.7),
+      amp: rand(5, 28),
+      seed: Math.random() * 1000,
+      magnet: group,
+      nearMiss: false,
+      destructible: true,
+      clickAt: rand(0.25, 0.7),
+      pulseGlow: 0,
+    };
+
+    if (type === "cube") {
+      common.r = rand(28, 42);
+      common.amp *= 0.8;
+      common.spin = rand(-2.4, 2.4);
+    } else if (type === "stone") {
+      common.r = rand(30, 46);
+      common.amp = rand(16, 44);
+      common.drift = rand(1.1, 2.4);
+      common.spin = rand(-0.7, 0.7);
+      common.vx *= 0.9;
+    } else if (type === "ring") {
+      common.r = rand(38, 58);
+      common.amp = rand(4, 18);
+      common.spin = rand(1.1, 2.2);
+      common.vx *= 0.96;
+    } else {
+      common.r = rand(20, 30);
+      common.amp = rand(18, 40);
+      common.spin = rand(-3, 3);
+      common.vx *= 1.14;
+    }
+    return common;
+  }
+
+  function obstacleWeight() {
+    const phase = currentPhase().name;
+    if (phase === "Calma") return ["cube", "cube", "stone", "ring"];
+    if (phase === "Ascenso") return ["cube", "stone", "ring", "shard", "cube"];
+    if (phase === "Tormenta") return ["cube", "stone", "ring", "shard", "ring", "stone"];
+    return ["cube", "ring", "stone"];
+  }
+
+  function pickObstacleType() {
+    const bag = obstacleWeight();
+    return bag[Math.floor(Math.random() * bag.length)];
+  }
+
+  function clearSpawnY() {
+    const top = Math.max(100, height * 0.14);
+    const bottom = height - Math.max(88, height * 0.12);
+    let best = rand(top, bottom);
+    let bestScore = -Infinity;
+    for (let attempt = 0; attempt < 7; attempt += 1) {
+      const y = rand(top, bottom);
+      let score = 0;
+      for (const o of state.obstacles) {
+        if (o.x > width * 0.66) {
+          score += Math.abs(o.y - y);
+        }
+      }
+      score += Math.abs(y - player.y) * 0.32;
+      if (score > bestScore) {
+        bestScore = score;
+        best = y;
+      }
+    }
+    return best;
+  }
+
+  function spawnObstacle() {
+    const x = width + rand(60, 180);
+    const y = clearSpawnY();
+    const type = pickObstacleType();
+    const phaseName = currentPhase().name;
+    const shouldLink =
+      phaseName === "Tormenta" || (phaseName === "Ascenso" && Math.random() < 0.34);
+
+    if (shouldLink && Math.random() < 0.62) {
+      const group = magnetId += 1;
+      const first = makeObstacle(type, x, y, group);
+      const secondType = Math.random() < 0.55 ? "stone" : pickObstacleType();
+      const second = makeObstacle(
+        secondType,
+        x + rand(92, 170),
+        clamp(y + rand(-130, 130), 110, height - 95),
+        group,
+      );
+      second.vx *= rand(0.9, 1.05);
+      state.obstacles.push(first, second);
+      return;
+    }
+
+    state.obstacles.push(makeObstacle(type, x, y));
+  }
+
+  function spawnCrystal() {
+    const phase = currentPhase();
+    if (Math.random() > phase.crystals) return;
+    const y = clamp(rand(height * 0.18, height * 0.84), 92, height - 78);
+    state.pickups.push({
+      x: width + rand(50, 140),
+      y,
+      baseY: y,
+      vx: -rand(175, 240) * phase.speed,
+      r: 18,
+      phase: rand(0, TAU),
+      spin: rand(-2, 2),
+    });
+  }
+
+  function triggerDash() {
+    if (state.mode !== "playing" || state.paused) return;
+    if (player.dashCooldown > 0) {
+      sfx("empty");
+      return;
+    }
+    const vec = chooseDashVector();
+    player.lastDashVector = vec;
+    player.x = clamp(player.x + vec.x * 118, 68, width - 70);
+    player.y = clamp(player.y + vec.y * 118, 82, height - 68);
+    player.vx += vec.x * 240;
+    player.vy += vec.y * 240;
+    player.dashCooldown = 0.75;
+    player.dashTimer = 0.18;
+    player.invuln = Math.max(player.invuln, 0.34);
+    state.shake = Math.max(state.shake, 4);
+    addRipple(player.x, player.y, "#8cffb2", 112, 4);
+    addParticles(player.x - vec.x * 30, player.y - vec.y * 30, "#8cffb2", 18, 220, 5);
+    sfx("dash");
+    vibrate(12);
+
+    const danger = findDangerObstacle(170);
+    if (danger && !danger.nearMiss) {
+      danger.nearMiss = true;
+      state.combo += 1;
+      const bonus = 95 + state.combo * 20;
+      state.score += bonus;
+      addFloating("Esquive inteligente +" + bonus, player.x, player.y - 48, "#8cffb2");
+      showComboToast(`Cadena x${state.combo}`);
+      sfx("perfect");
+    }
+  }
+
+  function chooseDashVector() {
+    const dx = Number(input.right) - Number(input.left);
+    const dy = Number(input.down) - Number(input.up);
+    if (Math.hypot(dx, dy) > 0.1) return normalize(dx, dy);
+
+    if (input.pointer) {
+      const toPointer = normalize(input.pointerX - player.x, input.pointerY - player.y);
+      if (Math.hypot(input.pointerX - player.x, input.pointerY - player.y) > 38) return toPointer;
+    }
+
+    const candidates = [
+      { x: 0, y: -1 },
+      { x: 0, y: 1 },
+      { x: 1, y: 0 },
+      { x: -0.35, y: -0.94 },
+      { x: -0.35, y: 0.94 },
+      { x: 0.72, y: -0.7 },
+      { x: 0.72, y: 0.7 },
+    ];
+
+    let best = candidates[0];
+    let bestScore = -Infinity;
+    for (const raw of candidates) {
+      const c = normalize(raw.x, raw.y);
+      const nx = clamp(player.x + c.x * 118, 68, width - 70);
+      const ny = clamp(player.y + c.y * 118, 82, height - 68);
+      let score = nx * 0.12;
+      score -= Math.abs(ny - height * 0.5) * 0.04;
+      for (const o of state.obstacles) {
+        if (o.x < player.x - 90 || o.x > player.x + 360) continue;
+        const futureX = o.x + o.vx * 0.38;
+        const futureY = o.y + Math.sin(o.phase + 0.4) * o.amp;
+        const gap = Math.hypot(nx - futureX, ny - futureY) - (collisionRadius(o) + player.r);
+        score += clamp(gap, -180, 240);
+        if (gap < 24) score -= 420;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = c;
+      }
+    }
+    return best;
+  }
+
+  function triggerPulse() {
+    if (state.mode !== "playing" || state.paused) return;
+    if (player.pulseCooldown > 0 || player.energy <= 0) {
+      addFloating("Sin carga", player.x, player.y - 42, "#ff9db5");
+      sfx("empty");
+      return;
+    }
+
+    player.energy -= 1;
+    player.pulseCooldown = 0.42;
+    player.invuln = Math.max(player.invuln, 0.18);
+    state.shake = Math.max(state.shake, 8);
+    state.flash = Math.max(state.flash, 0.18);
+    addRipple(player.x, player.y, "#4ee7d5", 260, 5);
+    addParticles(player.x, player.y, "#ffd166", 26, 260, 5);
+    sfx("pulse");
+    vibrate([18, 30, 18]);
+
+    const affectedMagnets = new Set();
+    for (const o of state.obstacles) {
+      const d = dist(player, o);
+      if (d < 192 && o.magnet) affectedMagnets.add(o.magnet);
+    }
+
+    let destroyed = 0;
+    let pushed = 0;
+    for (const o of state.obstacles) {
+      const d = dist(player, o);
+      const linked = o.magnet && affectedMagnets.has(o.magnet);
+      if (d < 192 || linked) {
+        o.dead = true;
+        destroyed += 1;
+        addParticles(o.x, o.y, obstacleColor(o), 18, 210, 5);
+      } else if (d < 302) {
+        const dir = normalize(o.x - player.x, o.y - player.y);
+        o.x += dir.x * 72 + 34;
+        o.baseY = clamp(o.baseY + dir.y * 70, 88, height - 76);
+        o.vx *= 0.72;
+        o.pulseGlow = 0.65;
+        pushed += 1;
+      }
+    }
+
+    if (destroyed || pushed) {
+      const bonus = destroyed * 150 + pushed * 35;
+      state.score += bonus;
+      state.combo = destroyed ? state.combo + destroyed : state.combo;
+      const word = destroyed ? "Desintegracion" : "Empuje";
+      addFloating(`${word} +${bonus}`, player.x + 18, player.y - 58, "#ffd166");
+      showComboToast(destroyed > 1 ? `Conexion magnetica x${destroyed}` : `Pulso preciso`);
+    } else {
+      addFloating("Pulso vacio", player.x + 12, player.y - 54, "#ff9db5");
+    }
+
+    updateHud();
+  }
+
+  function findDangerObstacle(range) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const o of state.obstacles) {
+      if (o.x < player.x - 70 || o.x > player.x + range) continue;
+      const d = dist(player, o) - collisionRadius(o) - player.r;
+      if (d < bestDist) {
+        bestDist = d;
+        best = o;
+      }
+    }
+    return bestDist < 64 ? best : null;
+  }
+
+  function collisionRadius(o) {
+    if (o.type === "ring") return o.r + 9;
+    if (o.type === "shard") return o.r * 0.9;
+    return o.r;
+  }
+
+  function collidesWithPlayer(o) {
+    const d = dist(player, o);
+    if (o.type === "ring") {
+      const ringWall = Math.abs(d - o.r) < player.r + 8;
+      const centerHit = d < player.r + 12;
+      return ringWall || centerHit;
+    }
+    return d < player.r + collisionRadius(o);
+  }
+
+  function obstacleColor(o) {
+    if (o.type === "cube") return "#9b7dff";
+    if (o.type === "stone") return "#ffd166";
+    if (o.type === "ring") return "#4ee7d5";
+    return "#ff6f91";
+  }
+
+  function update(dt) {
+    state.time += dt;
+    state.distance += dt * (78 + state.phaseIndex * 4);
+    state.score += dt * (18 + state.phaseIndex * 1.6);
+    state.shake = Math.max(0, state.shake - dt * 18);
+    state.flash = Math.max(0, state.flash - dt);
+    player.dashCooldown = Math.max(0, player.dashCooldown - dt);
+    player.pulseCooldown = Math.max(0, player.pulseCooldown - dt);
+    player.dashTimer = Math.max(0, player.dashTimer - dt);
+    player.invuln = Math.max(0, player.invuln - dt);
+
+    updatePhase(dt);
+    updatePlayer(dt);
+    updateSpawning(dt);
+    updateObstacles(dt);
+    updatePickups(dt);
+    updateEffects(dt);
+    updateHud();
+  }
+
+  function updatePhase(dt) {
+    state.phaseTime += dt;
+    const phase = currentPhase();
+    if (state.phaseTime > phase.duration) {
+      state.phaseTime = 0;
+      state.phaseIndex = (state.phaseIndex + 1) % PHASES.length;
+      showPhaseToast(currentPhase().toast);
+      addRipple(width * 0.5, height * 0.5, currentPhase().color, Math.max(width, height), 2);
+      sfx("click");
+    }
+  }
+
+  function updatePlayer(dt) {
+    const speed = player.dashTimer > 0 ? 580 : 330;
+    let tx = 0;
+    let ty = 0;
+    if (input.pointer) {
+      tx = (input.pointerX - player.x) * 6.2;
+      ty = (input.pointerY - player.y) * 6.2;
+    } else {
+      tx = (Number(input.right) - Number(input.left)) * speed;
+      ty = (Number(input.down) - Number(input.up)) * speed;
+      if (tx && ty) {
+        tx *= Math.SQRT1_2;
+        ty *= Math.SQRT1_2;
+      }
+    }
+
+    player.vx += (tx - player.vx) * Math.min(1, dt * 10);
+    player.vy += (ty - player.vy) * Math.min(1, dt * 10);
+    player.x += player.vx * dt;
+    player.y += player.vy * dt;
+
+    const marginX = 58;
+    const top = state.mode === "playing" ? 78 : 48;
+    player.x = clamp(player.x, marginX, width - marginX);
+    player.y = clamp(player.y, top, height - 58);
+    player.flame += dt * (player.dashTimer > 0 ? 22 : 9);
+    player.tilt += ((player.vy / 520) - player.tilt) * Math.min(1, dt * 8);
+  }
+
+  function updateSpawning(dt) {
+    const phase = currentPhase();
+    state.spawnTimer -= dt;
+    state.crystalTimer -= dt;
+    const difficulty = clamp(1 - state.distance / 18000, 0.52, 1);
+    if (state.spawnTimer <= 0) {
+      spawnObstacle();
+      state.spawnTimer = phase.spawn * difficulty * rand(0.72, 1.24);
+    }
+    if (state.crystalTimer <= 0) {
+      spawnCrystal();
+      state.crystalTimer = rand(1.8, 3.2) / Math.max(phase.crystals, 0.3);
+    }
+  }
+
+  function updateObstacles(dt) {
+    for (const o of state.obstacles) {
+      o.phase += dt * o.drift;
+      o.angle += dt * o.spin;
+      o.x += o.vx * dt;
+      o.y = o.baseY + Math.sin(o.phase + o.seed) * o.amp;
+      o.pulseGlow = Math.max(0, o.pulseGlow - dt * 1.7);
+
+      o.clickAt -= dt;
+      if (o.clickAt <= 0 && o.x > -80 && o.x < width + 80 && state.mode === "playing") {
+        if (o.type === "cube" || o.type === "ring") sfx("click");
+        o.clickAt = rand(0.55, 1.4);
+      }
+
+      if (!o.nearMiss && o.x < player.x - player.r && o.x > player.x - player.r - Math.abs(o.vx) * dt - 10) {
+        const gap = dist(player, o) - collisionRadius(o) - player.r;
+        if (gap > 0 && gap < 42) {
+          o.nearMiss = true;
+          state.combo += 1;
+          const bonus = 60 + state.combo * 12;
+          state.score += bonus;
+          addFloating("Esquiva fina +" + bonus, player.x + 18, player.y - 42, "#8cffb2");
+          showComboToast(`Cadena x${state.combo}`);
+          sfx("perfect");
+        }
+      }
+
+      if (player.invuln <= 0 && collidesWithPlayer(o)) {
+        handleHit(o);
+      }
+    }
+
+    state.obstacles = state.obstacles.filter((o) => !o.dead && o.x > -160);
+  }
+
+  function handleHit(o) {
+    o.dead = true;
+    state.health -= 1;
+    state.combo = 0;
+    player.invuln = 1.15;
+    state.shake = 15;
+    state.flash = 0.42;
+    addParticles(o.x, o.y, "#ff6f91", 30, 300, 6);
+    addParticles(player.x, player.y, "#ffffff", 20, 220, 4);
+    addRipple(player.x, player.y, "#ff4b6e", 170, 5);
+    addFloating("Impacto", player.x + 10, player.y - 52, "#ff9db5");
+    sfx("hit");
+    vibrate([34, 30, 44]);
+    if (state.health <= 0) {
+      setTimeout(showGameOver, 260);
+    }
+  }
+
+  function updatePickups(dt) {
+    for (const p of state.pickups) {
+      p.phase += dt * 2.2;
+      p.x += p.vx * dt;
+      p.y = p.baseY + Math.sin(p.phase) * 18;
+      if (dist(player, p) < player.r + p.r) {
+        p.dead = true;
+        if (player.energy < player.maxEnergy) {
+          player.energy += 1;
+          addFloating("+ Pulso", p.x, p.y - 28, "#4ee7d5");
+        } else {
+          state.score += 120;
+          addFloating("+120", p.x, p.y - 28, "#ffd166");
+        }
+        state.score += 45;
+        addParticles(p.x, p.y, "#4ee7d5", 16, 180, 4);
+        sfx("collect");
+        vibrate(8);
+      }
+    }
+    state.pickups = state.pickups.filter((p) => !p.dead && p.x > -80);
+  }
+
+  function updateEffects(dt) {
+    for (const p of state.particles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 1 - dt * 1.9;
+      p.vy *= 1 - dt * 1.9;
+      p.rot += p.spin * dt;
+      p.life -= dt;
+    }
+    for (const r of state.ripples) r.life -= dt;
+    for (const f of state.floating) {
+      f.y -= dt * 44;
+      f.life -= dt;
+    }
+    state.particles = state.particles.filter((p) => p.life > 0);
+    state.ripples = state.ripples.filter((r) => r.life > 0);
+    state.floating = state.floating.filter((f) => f.life > 0);
+  }
+
+  function render() {
+    ctx.save();
+    if (state.shake > 0) {
+      ctx.translate(rand(-state.shake, state.shake), rand(-state.shake, state.shake));
+    }
+    drawBackground();
+
+    if (state.mode !== "playing") {
+      drawAttractMode();
+    }
+
+    drawMagnetConnections();
+    for (const p of state.pickups) drawCrystal(p);
+    for (const o of state.obstacles) drawObstacleShadow(o);
+    for (const o of state.obstacles) drawObstacle(o);
+    drawRipples();
+    drawParticles();
+    drawPlayer();
+    drawFloating();
+
+    if (state.flash > 0) {
+      ctx.globalCompositeOperation = "screen";
+      ctx.fillStyle = `rgba(255, 111, 145, ${state.flash * 0.55})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    drawVignette();
+    ctx.restore();
+  }
+
+  function drawBackground() {
+    const t = state.time;
+    const sky = ctx.createLinearGradient(0, 0, width, height);
+    sky.addColorStop(0, "#071022");
+    sky.addColorStop(0.38, "#201446");
+    sky.addColorStop(0.68, "#06273a");
+    sky.addColorStop(1, "#12091f");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, width, height);
+
+    const nebulaA = ctx.createRadialGradient(width * 0.2, height * 0.24, 20, width * 0.2, height * 0.24, width * 0.44);
+    nebulaA.addColorStop(0, "rgba(255, 111, 145, 0.2)");
+    nebulaA.addColorStop(1, "rgba(255, 111, 145, 0)");
+    ctx.fillStyle = nebulaA;
+    ctx.fillRect(0, 0, width, height);
+
+    const nebulaB = ctx.createRadialGradient(width * 0.78, height * 0.72, 30, width * 0.78, height * 0.72, width * 0.52);
+    nebulaB.addColorStop(0, "rgba(78, 231, 213, 0.18)");
+    nebulaB.addColorStop(0.55, "rgba(155, 125, 255, 0.08)");
+    nebulaB.addColorStop(1, "rgba(78, 231, 213, 0)");
+    ctx.fillStyle = nebulaB;
+    ctx.fillRect(0, 0, width, height);
+
+    for (const s of state.stars) {
+      const x = (s.x - state.distance * s.speed) % (width + 20);
+      const drawX = x < -10 ? x + width + 20 : x;
+      const tw = 0.55 + Math.sin(t * 2.2 + s.twinkle) * 0.35;
+      ctx.globalAlpha = clamp(tw, 0.18, 0.92);
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      ctx.arc(drawX, s.y, s.s, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    const light = ctx.createRadialGradient(player.x, player.y, 8, player.x, player.y, 260);
+    light.addColorStop(0, "rgba(255, 255, 255, 0.18)");
+    light.addColorStop(0.2, "rgba(78, 231, 213, 0.12)");
+    light.addColorStop(1, "rgba(78, 231, 213, 0)");
+    ctx.fillStyle = light;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  function drawAttractMode() {
+    const t = performance.now() / 1000;
+    const centerX = width * 0.58;
+    const centerY = height * 0.52;
+    const samples = [
+      { type: "cube", x: centerX - 110, y: centerY - 78, r: 44, angle: t, pulseGlow: 0.3, phase: t, seed: 2 },
+      { type: "stone", x: centerX + 82, y: centerY - 18, r: 48, angle: -t * 0.6, pulseGlow: 0.2, phase: t, seed: 5 },
+      { type: "ring", x: centerX - 5, y: centerY + 98, r: 56, angle: t * 1.2, pulseGlow: 0.35, phase: t, seed: 9 },
+    ];
+    for (const o of samples) drawObstacleShadow(o, 0.42);
+    for (const o of samples) drawObstacle(o, true);
+  }
+
+  function drawMagnetConnections() {
+    const groups = new Map();
+    for (const o of state.obstacles) {
+      if (!o.magnet) continue;
+      if (!groups.has(o.magnet)) groups.set(o.magnet, []);
+      groups.get(o.magnet).push(o);
+    }
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      for (let i = 0; i < group.length - 1; i += 1) {
+        const a = group[i];
+        const b = group[i + 1];
+        const nearPlayer = Math.min(dist(player, a), dist(player, b)) < 230;
+        const alpha = nearPlayer ? 0.44 : 0.18;
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = `rgba(78, 231, 213, ${alpha})`;
+        ctx.lineWidth = nearPlayer ? 2.2 : 1.2;
+        ctx.setLineDash([8, 10]);
+        ctx.lineDashOffset = -state.time * 34;
+        ctx.beginPath();
+        const cx = (a.x + b.x) / 2;
+        const cy = (a.y + b.y) / 2 + Math.sin(state.time * 3 + a.seed) * 28;
+        ctx.moveTo(a.x, a.y);
+        ctx.quadraticCurveTo(cx, cy, b.x, b.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawObstacleShadow(o, strength = 1) {
+    const lightX = player.x - 42;
+    const lightY = player.y - 120;
+    const dir = normalize(o.x - lightX, o.y - lightY);
+    const offset = 28 + o.r * 0.48;
+    const sx = o.x + dir.x * offset;
+    const sy = o.y + dir.y * offset;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(o.angle * 0.45);
+    ctx.scale(1.18 + Math.abs(dir.x) * 0.35, 0.42 + Math.abs(dir.y) * 0.18);
+    ctx.globalAlpha = 0.28 * strength;
+    ctx.fillStyle = "#01030a";
+    ctx.shadowColor = "rgba(0,0,0,0.8)";
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    if (o.type === "ring") {
+      ctx.ellipse(0, 0, o.r * 1.16, o.r * 0.7, 0, 0, TAU);
+    } else if (o.type === "stone") {
+      for (let i = 0; i < 9; i += 1) {
+        const a = (i / 9) * TAU;
+        const r = o.r * (0.76 + 0.22 * Math.sin(i * 1.7 + o.seed));
+        const x = Math.cos(a) * r;
+        const y = Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+    } else {
+      ctx.rect(-o.r, -o.r * 0.7, o.r * 2, o.r * 1.4);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawObstacle(o, forceReveal = false) {
+    const reveal = forceReveal || dist(player, o) < 190 || o.pulseGlow > 0.01;
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.rotate(o.angle);
+    if (o.pulseGlow > 0) {
+      ctx.shadowColor = "#4ee7d5";
+      ctx.shadowBlur = 22 * o.pulseGlow;
+    }
+    if (o.type === "cube") drawMetamorphicCube(o, reveal);
+    else if (o.type === "stone") drawBalanceStone(o, reveal);
+    else if (o.type === "ring") drawInfiniteRing(o, reveal);
+    else drawShard(o, reveal);
+    ctx.restore();
+  }
+
+  function drawMetamorphicCube(o, reveal) {
+    const morph = (Math.sin(o.phase * 2.1 + o.seed) + 1) / 2;
+    const sides = 4 + Math.floor(morph * 4);
+    const r = o.r * (0.86 + morph * 0.18);
+    const grad = ctx.createLinearGradient(-r, -r, r, r);
+    grad.addColorStop(0, "#f8fbff");
+    grad.addColorStop(0.34, "#9b7dff");
+    grad.addColorStop(0.72, "#4ee7d5");
+    grad.addColorStop(1, "#ff6f91");
+
+    ctx.beginPath();
+    for (let i = 0; i < sides; i += 1) {
+      const a = (i / sides) * TAU + Math.PI / 4;
+      const kink = 1 + Math.sin(o.phase * 3 + i * 1.8) * 0.14;
+      const x = Math.cos(a) * r * kink;
+      const y = Math.sin(a) * r * kink;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,255,255,0.68)";
+    ctx.stroke();
+
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = "rgba(9, 11, 34, 0.22)";
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.12, -r * 0.9);
+    ctx.lineTo(r * 0.95, -r * 0.08);
+    ctx.lineTo(r * 0.16, r * 0.86);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    if (reveal) {
+      ctx.save();
+      ctx.globalAlpha = 0.74;
+      ctx.strokeStyle = "rgba(255,255,255,0.72)";
+      ctx.lineWidth = 1.2;
+      for (let y = -r; y <= r; y += 8) {
+        ctx.beginPath();
+        ctx.moveTo(-r, y + Math.sin(y + o.seed) * 3);
+        ctx.lineTo(r, y - 7 + Math.cos(y) * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#ffd166";
+      for (let i = 0; i < 5; i += 1) {
+        ctx.beginPath();
+        ctx.arc(Math.cos(i * 1.7) * r * 0.52, Math.sin(i * 1.4) * r * 0.44, 2.4, 0, TAU);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawBalanceStone(o, reveal) {
+    const r = o.r;
+    ctx.save();
+    ctx.rotate(Math.sin(o.phase * 1.7) * 0.35);
+    const grad = ctx.createRadialGradient(-r * 0.25, -r * 0.4, 4, 0, 0, r * 1.18);
+    grad.addColorStop(0, "#fff1b9");
+    grad.addColorStop(0.42, "#ffd166");
+    grad.addColorStop(0.76, "#d77d63");
+    grad.addColorStop(1, "#58334c");
+    ctx.beginPath();
+    for (let i = 0; i < 12; i += 1) {
+      const a = (i / 12) * TAU;
+      const jag = 0.78 + 0.24 * Math.sin(o.seed + i * 2.33) + 0.06 * Math.sin(o.phase * 3 + i);
+      const x = Math.cos(a) * r * jag;
+      const y = Math.sin(a) * r * (1.1 - jag * 0.2);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.48)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.24, -r * 0.26, r * 0.2, r * 0.12, -0.5, 0, TAU);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.88, r * 0.18, r * 0.045, 0, 0, TAU);
+    ctx.fill();
+
+    if (reveal) {
+      ctx.strokeStyle = "rgba(8, 18, 42, 0.46)";
+      ctx.lineWidth = 1.5;
+      for (let i = -2; i <= 2; i += 1) {
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.55, i * r * 0.18);
+        ctx.bezierCurveTo(-r * 0.12, i * r * 0.22 - 12, r * 0.15, i * r * 0.2 + 12, r * 0.58, i * r * 0.15);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawInfiniteRing(o, reveal) {
+    const r = o.r + Math.sin(o.phase * 2.4) * 5;
+    const thickness = 10 + Math.sin(o.phase * 1.8) * 2;
+    const grad = ctx.createLinearGradient(-r, -r, r, r);
+    grad.addColorStop(0, "#4ee7d5");
+    grad.addColorStop(0.5, "#f8fbff");
+    grad.addColorStop(1, "#9b7dff");
+    ctx.lineCap = "round";
+    ctx.lineWidth = thickness;
+    ctx.strokeStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0.25, TAU * 0.86);
+    ctx.stroke();
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(255, 209, 102, 0.86)";
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.72, TAU * 0.04, TAU * 0.92);
+    ctx.stroke();
+
+    ctx.fillStyle = "#ff6f91";
+    for (let i = 0; i < 3; i += 1) {
+      const a = o.phase + i * TAU / 3;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * r, Math.sin(a) * r, 4.2, 0, TAU);
+      ctx.fill();
+    }
+
+    if (reveal) {
+      ctx.strokeStyle = "rgba(255,255,255,0.54)";
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      for (let i = 0; i < 80; i += 1) {
+        const a = i * 0.24;
+        const rr = i * 0.56;
+        const x = Math.cos(a) * rr;
+        const y = Math.sin(a) * rr;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function drawShard(o, reveal) {
+    const r = o.r;
+    const grad = ctx.createLinearGradient(-r, -r, r, r);
+    grad.addColorStop(0, "#ffffff");
+    grad.addColorStop(0.36, "#ff6f91");
+    grad.addColorStop(1, "#ffd166");
+    ctx.beginPath();
+    ctx.moveTo(r * 1.2, 0);
+    ctx.lineTo(-r * 0.5, -r * 0.72);
+    ctx.lineTo(-r * 0.22, -r * 0.1);
+    ctx.lineTo(-r * 1.1, r * 0.62);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.56)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    if (reveal) {
+      ctx.strokeStyle = "rgba(8,18,42,0.5)";
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.65, r * 0.35);
+      ctx.lineTo(r * 0.78, -r * 0.05);
+      ctx.stroke();
+    }
+  }
+
+  function drawCrystal(p) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.phase + p.spin);
+    const r = p.r;
+    ctx.globalCompositeOperation = "lighter";
+    ctx.shadowColor = "#4ee7d5";
+    ctx.shadowBlur = 18;
+    const grad = ctx.createLinearGradient(-r, -r, r, r);
+    grad.addColorStop(0, "#ffffff");
+    grad.addColorStop(0.38, "#4ee7d5");
+    grad.addColorStop(1, "#9b7dff");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r * 0.75, -r * 0.12);
+    ctx.lineTo(r * 0.42, r);
+    ctx.lineTo(-r * 0.42, r);
+    ctx.lineTo(-r * 0.75, -r * 0.12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.82)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawRipples() {
+    for (const r of state.ripples) {
+      const p = 1 - r.life / r.max;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = Math.max(0, r.life / r.max) * 0.78;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = r.widthLine * (1 - p * 0.35);
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.radius * p, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawParticles() {
+    for (const p of state.particles) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s);
+      ctx.restore();
+    }
+  }
+
+  function drawFloating() {
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.font = "800 16px Inter, system-ui, sans-serif";
+    for (const f of state.floating) {
+      ctx.globalAlpha = Math.max(0, f.life / f.max);
+      ctx.fillStyle = f.color;
+      ctx.shadowColor = "rgba(0,0,0,0.6)";
+      ctx.shadowBlur = 8;
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.restore();
+  }
+
+  function drawPlayer() {
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.tilt);
+
+    const inv = player.invuln > 0 && Math.sin(state.time * 32) > 0;
+    if (inv) ctx.globalAlpha = 0.72;
+
+    const flamePulse = Math.sin(player.flame) * 0.22 + 0.78;
+    const flameLong = player.dashTimer > 0 ? 54 : 30;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const flame = ctx.createLinearGradient(-36 - flameLong, 0, -20, 0);
+    flame.addColorStop(0, "rgba(78, 231, 213, 0)");
+    flame.addColorStop(0.35, "rgba(255, 209, 102, 0.62)");
+    flame.addColorStop(0.7, "rgba(255, 111, 145, 0.88)");
+    flame.addColorStop(1, "rgba(255,255,255,0.96)");
+    ctx.fillStyle = flame;
+    ctx.beginPath();
+    ctx.moveTo(-28, -9);
+    ctx.quadraticCurveTo(-36 - flameLong * flamePulse, 0, -28, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.shadowColor = player.dashTimer > 0 ? "#8cffb2" : "#4ee7d5";
+    ctx.shadowBlur = player.dashTimer > 0 ? 28 : 16;
+
+    const body = ctx.createLinearGradient(-26, -18, 34, 18);
+    body.addColorStop(0, "#eaf7ff");
+    body.addColorStop(0.46, "#8bdcff");
+    body.addColorStop(0.76, "#ffffff");
+    body.addColorStop(1, "#ff6f91");
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(36, 0);
+    ctx.bezierCurveTo(20, -24, -18, -22, -31, -9);
+    ctx.lineTo(-31, 9);
+    ctx.bezierCurveTo(-18, 22, 20, 24, 36, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,255,255,0.78)";
+    ctx.stroke();
+
+    ctx.fillStyle = "#ff6f91";
+    ctx.beginPath();
+    ctx.moveTo(-18, -12);
+    ctx.lineTo(-38, -25);
+    ctx.lineTo(-29, -3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-18, 12);
+    ctx.lineTo(-38, 25);
+    ctx.lineTo(-29, 3);
+    ctx.closePath();
+    ctx.fill();
+
+    const windowGrad = ctx.createRadialGradient(13, -5, 2, 13, -5, 12);
+    windowGrad.addColorStop(0, "#ffffff");
+    windowGrad.addColorStop(0.38, "#4ee7d5");
+    windowGrad.addColorStop(1, "#1b4b74");
+    ctx.fillStyle = windowGrad;
+    ctx.beginPath();
+    ctx.arc(13, -4, 10, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(4, 12, 26, 0.42)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = "#071225";
+    ctx.globalAlpha *= 0.15;
+    ctx.beginPath();
+    ctx.ellipse(-4, 12, 22, 4, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawVignette() {
+    const v = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.24, width / 2, height / 2, Math.max(width, height) * 0.72);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, "rgba(0,0,0,0.45)");
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  function frame(timestamp) {
+    const now = timestamp / 1000;
+    const dt = Math.min(0.033, now - (lastFrame || now));
+    lastFrame = now;
+
+    if (state.mode === "playing" && !state.paused) {
+      update(dt);
+    } else {
+      state.time += dt * 0.45;
+      player.flame += dt * 5;
+      player.x += ((width * 0.22) - player.x) * Math.min(1, dt * 1.6);
+      player.y += ((height * 0.56 + Math.sin(state.time * 1.7) * 18) - player.y) * Math.min(1, dt * 1.6);
+      player.tilt = Math.sin(state.time * 1.3) * 0.08;
+    }
+
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  function setKey(code, down) {
+    if (code === "ArrowUp" || code === "KeyW") input.up = down;
+    if (code === "ArrowDown" || code === "KeyS") input.down = down;
+    if (code === "ArrowLeft" || code === "KeyA") input.left = down;
+    if (code === "ArrowRight" || code === "KeyD") input.right = down;
+  }
+
+  window.addEventListener("keydown", (event) => {
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) {
+      event.preventDefault();
+    }
+    if (event.code === "Enter" && state.mode !== "playing") {
+      startGame();
+      return;
+    }
+    if (event.code === "Escape" || event.code === "KeyP") {
+      togglePause();
+      return;
+    }
+    if (event.code === "KeyM") {
+      toggleMute();
+      return;
+    }
+    setKey(event.code, true);
+    if (event.repeat) return;
+    if (event.code === "Space" || event.code === "ShiftLeft" || event.code === "ShiftRight") {
+      triggerDash();
+    }
+    if (event.code === "KeyE" || event.code === "KeyX") {
+      triggerPulse();
+    }
+  });
+
+  window.addEventListener("keyup", (event) => {
+    setKey(event.code, false);
+  });
+
+  canvas.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (state.mode !== "playing") return;
+      event.preventDefault();
+      input.pointer = true;
+      input.pointerX = event.clientX;
+      input.pointerY = event.clientY;
+      const now = performance.now();
+      if (now - input.lastTap < 280) triggerDash();
+      input.lastTap = now;
+    },
+    { passive: false },
+  );
+
+  canvas.addEventListener(
+    "pointermove",
+    (event) => {
+      if (!input.pointer) return;
+      event.preventDefault();
+      input.pointerX = event.clientX;
+      input.pointerY = event.clientY;
+    },
+    { passive: false },
+  );
+
+  window.addEventListener("pointerup", () => {
+    input.pointer = false;
+  });
+
+  startButton.addEventListener("click", startGame);
+  restartButton.addEventListener("click", startGame);
+  homeButton.addEventListener("click", returnHome);
+  pauseButton.addEventListener("click", togglePause);
+  muteButton.addEventListener("click", toggleMute);
+  muteButtonIntro.addEventListener("click", toggleMute);
+  dashTouch.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    triggerDash();
+  });
+  pulseTouch.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    triggerPulse();
+  });
+
+  window.addEventListener("resize", () => {
+    buildStars();
+    resize();
+  });
+
+  resize();
+  requestAnimationFrame(frame);
+})();
