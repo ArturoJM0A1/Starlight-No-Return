@@ -114,7 +114,7 @@
   const player = {
     x: 150,
     y: 240,
-    r: 23,
+    r: 18,            // Reducido de 23 a 18
     vx: 0,
     vy: 0,
     energy: 3,
@@ -164,8 +164,8 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     if (!state.stars.length) buildStars();
-    player.x = clamp(player.x || 150, 82, width - 92);
-    player.y = clamp(player.y || height / 2, 96, height - 84);
+    player.x = clamp(player.x || 150, 68, width - 78);
+    player.y = clamp(player.y || height / 2, 82, height - 68);
   }
 
   function buildStars() {
@@ -209,7 +209,7 @@
       floating: [],
     });
     Object.assign(player, {
-      x: clamp(width * 0.22, 105, 220),
+      x: clamp(width * 0.22, 95, 200),
       y: height * 0.52,
       vx: 0,
       vy: 0,
@@ -499,22 +499,26 @@
     return bag[Math.floor(Math.random() * bag.length)];
   }
 
+  // Generación de obstáculos MUY centrados verticalmente
   function clearSpawnY() {
     const top = Math.max(100, height * 0.14);
     const bottom = height - Math.max(88, height * 0.12);
     let best = rand(top, bottom);
     let bestScore = -Infinity;
-    for (let attempt = 0; attempt < 7; attempt += 1) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
       const y = rand(top, bottom);
       let score = 0;
+      // Evitar acumulación excesiva cerca del jugador
       for (const o of state.obstacles) {
         if (o.x > width * 0.66) {
           score += Math.abs(o.y - y);
         }
       }
-      score += Math.abs(y - player.y) * 0.32;
-      // Bonus para que aparezcan más en el centro vertical
-      const centerBonus = 120 * (1 - Math.abs(y - height/2) / (height/2));
+      score += Math.abs(y - player.y) * 0.2;
+      // Fuerte bonificación al centro: entre 0.4 y 0.6 de la altura
+      const center = height / 2;
+      const centerDist = Math.abs(y - center);
+      const centerBonus = 300 * (1 - centerDist / (height / 2));
       score += centerBonus;
       if (score > bestScore) {
         bestScore = score;
@@ -550,17 +554,16 @@
     state.obstacles.push(makeObstacle(type, x, y));
   }
 
-  // Ahora genera cristales, corazones o munición
   function spawnPickup() {
     const phase = currentPhase();
     if (Math.random() > phase.crystals) return;
     const y = clamp(rand(height * 0.18, height * 0.84), 92, height - 78);
     
-    // Determinar tipo: corazón (12%), munición (12%), cristal (76%)
+    // Probabilidades: corazón 28%, munición 8%, cristal 64%
     const r = Math.random();
     let type = "crystal";
-    if (r < 0.12) type = "heart";
-    else if (r < 0.24) type = "ammo";
+    if (r < 0.28) type = "heart";
+    else if (r < 0.36) type = "ammo";
     
     const pickup = {
       x: width + rand(50, 140),
@@ -583,8 +586,8 @@
     }
     const vec = chooseDashVector();
     player.lastDashVector = vec;
-    player.x = clamp(player.x + vec.x * 118, 68, width - 70);
-    player.y = clamp(player.y + vec.y * 118, 82, height - 68);
+    player.x = clamp(player.x + vec.x * 118, 58, width - 60);
+    player.y = clamp(player.y + vec.y * 118, 68, height - 58);
     player.vx += vec.x * 240;
     player.vy += vec.y * 240;
     player.dashCooldown = 0.75;
@@ -632,8 +635,8 @@
     let bestScore = -Infinity;
     for (const raw of candidates) {
       const c = normalize(raw.x, raw.y);
-      const nx = clamp(player.x + c.x * 118, 68, width - 70);
-      const ny = clamp(player.y + c.y * 118, 82, height - 68);
+      const nx = clamp(player.x + c.x * 118, 58, width - 60);
+      const ny = clamp(player.y + c.y * 118, 68, height - 58);
       let score = nx * 0.12;
       score -= Math.abs(ny - height * 0.5) * 0.04;
       for (const o of state.obstacles) {
@@ -743,16 +746,16 @@
     }
 
     state.projectiles.push({
-      x: player.x + dirX * (player.r + 8),
-      y: player.y + dirY * (player.r + 8),
+      x: player.x + dirX * (player.r + 6),
+      y: player.y + dirY * (player.r + 6),
       vx: dirX * 520,
       vy: dirY * 520,
-      r: 6,
+      r: 5,
       life: 1.2,
       color: "#ffd166"
     });
 
-    addParticles(player.x + dirX * 20, player.y + dirY * 20, "#ffd166", 6, 180, 4);
+    addParticles(player.x + dirX * 18, player.y + dirY * 18, "#ffd166", 5, 180, 3);
     sfx("shoot");
     updateHud();
   }
@@ -780,8 +783,8 @@
   function collidesWithPlayer(o) {
     const d = dist(player, o);
     if (o.type === "ring") {
-      const ringWall = Math.abs(d - o.r) < player.r + 8;
-      const centerHit = d < player.r + 12;
+      const ringWall = Math.abs(d - o.r) < player.r + 6;
+      const centerHit = d < player.r + 10;
       return ringWall || centerHit;
     }
     return d < player.r + collisionRadius(o);
@@ -849,10 +852,10 @@
     player.x += player.vx * dt;
     player.y += player.vy * dt;
 
-    const marginX = 58;
-    const top = state.mode === "playing" ? 78 : 48;
+    const marginX = 48;
+    const top = state.mode === "playing" ? 68 : 48;
     player.x = clamp(player.x, marginX, width - marginX);
-    player.y = clamp(player.y, top, height - 58);
+    player.y = clamp(player.y, top, height - 48);
     player.flame += dt * (player.dashTimer > 0 ? 22 : 9);
     player.tilt += ((player.vy / 520) - player.tilt) * Math.min(1, dt * 8);
   }
@@ -867,7 +870,7 @@
       state.spawnTimer = phase.spawn * difficulty * rand(0.72, 1.24);
     }
     if (state.crystalTimer <= 0) {
-      spawnPickup(); // ahora genera cristal, corazón o munición
+      spawnPickup();
       state.crystalTimer = rand(1.8, 3.2) / Math.max(phase.crystals, 0.3);
     }
   }
@@ -1405,7 +1408,7 @@
       ctx.arc(r*0.5, 0, r*0.3, 0, TAU);
       ctx.fill();
     } else {
-      // crystal (original)
+      // crystal
       ctx.shadowColor = "#4ee7d5";
       const grad = ctx.createLinearGradient(-r, -r, r, r);
       grad.addColorStop(0, "#ffffff");
@@ -1492,72 +1495,72 @@
     if (inv) ctx.globalAlpha = 0.72;
 
     const flamePulse = Math.sin(player.flame) * 0.22 + 0.78;
-    const flameLong = player.dashTimer > 0 ? 54 : 30;
+    const flameLong = player.dashTimer > 0 ? 48 : 24;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    const flame = ctx.createLinearGradient(-36 - flameLong, 0, -20, 0);
+    const flame = ctx.createLinearGradient(-30 - flameLong, 0, -16, 0);
     flame.addColorStop(0, "rgba(78, 231, 213, 0)");
     flame.addColorStop(0.35, "rgba(255, 209, 102, 0.62)");
     flame.addColorStop(0.7, "rgba(255, 111, 145, 0.88)");
     flame.addColorStop(1, "rgba(255,255,255,0.96)");
     ctx.fillStyle = flame;
     ctx.beginPath();
-    ctx.moveTo(-28, -9);
-    ctx.quadraticCurveTo(-36 - flameLong * flamePulse, 0, -28, 9);
+    ctx.moveTo(-22, -7);
+    ctx.quadraticCurveTo(-30 - flameLong * flamePulse, 0, -22, 7);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
 
     ctx.shadowColor = player.dashTimer > 0 ? "#8cffb2" : "#4ee7d5";
-    ctx.shadowBlur = player.dashTimer > 0 ? 28 : 16;
+    ctx.shadowBlur = player.dashTimer > 0 ? 24 : 12;
 
-    const body = ctx.createLinearGradient(-26, -18, 34, 18);
+    const body = ctx.createLinearGradient(-20, -14, 28, 14);
     body.addColorStop(0, "#eaf7ff");
     body.addColorStop(0.46, "#8bdcff");
     body.addColorStop(0.76, "#ffffff");
     body.addColorStop(1, "#ff6f91");
     ctx.fillStyle = body;
     ctx.beginPath();
-    ctx.moveTo(36, 0);
-    ctx.bezierCurveTo(20, -24, -18, -22, -31, -9);
-    ctx.lineTo(-31, 9);
-    ctx.bezierCurveTo(-18, 22, 20, 24, 36, 0);
+    ctx.moveTo(28, 0);
+    ctx.bezierCurveTo(16, -18, -14, -17, -24, -7);
+    ctx.lineTo(-24, 7);
+    ctx.bezierCurveTo(-14, 17, 16, 18, 28, 0);
     ctx.closePath();
     ctx.fill();
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.strokeStyle = "rgba(255,255,255,0.78)";
     ctx.stroke();
 
     ctx.fillStyle = "#ff6f91";
     ctx.beginPath();
-    ctx.moveTo(-18, -12);
-    ctx.lineTo(-38, -25);
-    ctx.lineTo(-29, -3);
+    ctx.moveTo(-14, -9);
+    ctx.lineTo(-30, -20);
+    ctx.lineTo(-23, -2);
     ctx.closePath();
     ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(-18, 12);
-    ctx.lineTo(-38, 25);
-    ctx.lineTo(-29, 3);
+    ctx.moveTo(-14, 9);
+    ctx.lineTo(-30, 20);
+    ctx.lineTo(-23, 2);
     ctx.closePath();
     ctx.fill();
 
-    const windowGrad = ctx.createRadialGradient(13, -5, 2, 13, -5, 12);
+    const windowGrad = ctx.createRadialGradient(10, -4, 2, 10, -4, 9);
     windowGrad.addColorStop(0, "#ffffff");
     windowGrad.addColorStop(0.38, "#4ee7d5");
     windowGrad.addColorStop(1, "#1b4b74");
     ctx.fillStyle = windowGrad;
     ctx.beginPath();
-    ctx.arc(13, -4, 10, 0, TAU);
+    ctx.arc(10, -3, 7, 0, TAU);
     ctx.fill();
     ctx.strokeStyle = "rgba(4, 12, 26, 0.42)";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
     ctx.fillStyle = "#071225";
     ctx.globalAlpha *= 0.15;
     ctx.beginPath();
-    ctx.ellipse(-4, 12, 22, 4, 0, 0, TAU);
+    ctx.ellipse(-3, 9, 16, 3, 0, 0, TAU);
     ctx.fill();
     ctx.restore();
   }
