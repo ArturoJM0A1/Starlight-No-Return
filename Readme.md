@@ -6,9 +6,7 @@
 
 ---
 
-🎮 **Juega ahora:** https://starlightnoreturn.vercel.app/
-
-**Starlight: No Return** es un frenético juego arcade espacial donde cada segundo cuenta. Pilota un cohete metamórfico a través de un universo hostil, esquiva anomalías cósmicas, administra tus recursos y sobrevive el mayor tiempo posible antes de alcanzar el punto de no retorno.
+## 🎮 **Juega ahora:** https://starlightnoreturn.vercel.app/
 
 
 ## 🚀 Sobre el juego
