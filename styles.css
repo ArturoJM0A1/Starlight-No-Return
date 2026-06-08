@@ -58,16 +58,24 @@ button {
   position: absolute;
   inset: 0;
   z-index: 5;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   padding: clamp(18px, 4vw, 48px);
   background: linear-gradient(180deg, rgba(3, 6, 16, 0.24), rgba(3, 6, 16, 0.52)),
               radial-gradient(circle at 50% 46%, rgba(78, 231, 213, 0.18), transparent 46%);
   overflow-y: auto;
-  scrollbar-width: none; /* Firefox */
+  scrollbar-width: thin; /* Firefox: scroll delgado pero visible */
 }
+
 .screen::-webkit-scrollbar {
-  display: none; /* Chrome, Safari */
+  width: 6px;
+  background: rgba(0,0,0,0.3);
+}
+.screen::-webkit-scrollbar-thumb {
+  background: var(--gold);
+  border-radius: 4px;
 }
 
 .screen::before {
@@ -86,10 +94,19 @@ button {
 }
 
 .screen-welcome,
+.screen-instructions,
 #gameOverScreen {
-  align-content: center;
-  justify-items: center;
   text-align: center;
+}
+
+.screen-welcome {
+  justify-content: center;
+}
+
+.screen-instructions {
+  justify-content: flex-start; /* Para que el scroll sea natural */
+  padding-top: 30px;
+  padding-bottom: 40px;
 }
 
 .brand-row {
@@ -153,7 +170,7 @@ h3 {
   line-height: 1.55;
 }
 
-/* Cuadrícula de instrucciones mejorada */
+/* Cuadrícula de instrucciones */
 .instruction-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(240px, 1fr));
@@ -242,7 +259,7 @@ kbd {
   filter: brightness(1.08);
 }
 
-/* HUD moderno y adaptable */
+/* HUD */
 .hud {
   position: absolute;
   top: max(14px, env(safe-area-inset-top));
@@ -443,15 +460,10 @@ kbd {
 
 @media (max-width: 620px) {
   .screen {
-    align-items: start;
-    overflow-y: auto;
     padding: 20px 14px 30px;
   }
-  .screen-welcome, #gameOverScreen {
-    display: flex;
-    flex-direction: column;
+  .screen-instructions {
     justify-content: flex-start;
-    align-items: center;
   }
   h1 {
     font-size: clamp(2.5rem, 12vw, 4.5rem);

@@ -10,7 +10,7 @@
     <main class="game-shell" aria-label="Juego Starlight: No Return">
       <canvas id="gameCanvas" aria-label="Área de juego"></canvas>
 
-      <!-- Pantalla de bienvenida -->
+      <!-- Pantalla de bienvenida (primer página) -->
       <section id="welcomeScreen" class="screen screen-welcome">
         <div class="brand-row">
           <div class="mini-rocket" aria-hidden="true"></div>
@@ -18,11 +18,24 @@
         </div>
         <h1>Starlight: No Return</h1>
         <h3>By: Arturo Juárez Monroy</h3>
+        <div class="welcome-actions">
+          <button id="nextButton" class="primary-button">Siguiente →</button>
+          <button id="muteButtonIntro" class="ghost-button" aria-pressed="false">Sonido</button>
+        </div>
+      </section>
+
+      <!-- Pantalla de instrucciones (segunda página con scroll) -->
+      <section id="instructionsPage" class="screen screen-instructions hidden">
+        <div class="brand-row">
+          <div class="mini-rocket" aria-hidden="true"></div>
+          <span>Guía de vuelo</span>
+        </div>
+        <h2>Instrucciones</h2>
         <p class="lead">
           Sobrevive el mayor tiempo posible. Esquiva, dispara y recoge mejoras. Cada fase es más letal.
         </p>
 
-        <div class="instruction-grid" aria-label="Instrucciones del juego">
+        <div class="instruction-grid" aria-label="Mecánicas del juego">
           <article>
             <strong>🎮 Movimiento</strong>
             <span>Flechas / WASD o arrastra el dedo sobre la pantalla.</span>
@@ -33,7 +46,7 @@
           </article>
           <article>
             <strong>💨 Esquive inteligente</strong>
-            <span>Espacio / doble toque. El cohete se desplaza rápidamente evitando obstáculos.</span>
+            <span>Espacio / doble toque. El cohete se desplaza rápidamente.</span>
           </article>
           <article>
             <strong>✨ Pulso Prisma</strong>
@@ -74,8 +87,8 @@
         </div>
 
         <div class="welcome-actions">
+          <button id="backButton" class="ghost-button">← Volver</button>
           <button id="startButton" class="primary-button">Iniciar viaje</button>
-          <button id="muteButtonIntro" class="ghost-button" aria-pressed="false">Sonido</button>
         </div>
       </section>
 
@@ -93,7 +106,7 @@
         </div>
       </section>
 
-      <!-- HUD principal (se añaden más paneles dinámicamente) -->
+      <!-- HUD principal -->
       <div id="hud" class="hud hidden" aria-live="polite">
         <div class="hud-panel">
           <span>Puntos</span>
@@ -115,7 +128,6 @@
           <span>Vidas</span>
           <strong id="healthValue">6</strong>
         </div>
-        <!-- Los paneles de invisibilidad y aliado se crearán dinámicamente -->
       </div>
 
       <div id="phaseToast" class="phase-toast hidden"></div>
@@ -133,5 +145,60 @@
     </main>
 
     <script src="game.js"></script>
+    <script>
+      (function() {
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const instructionsPage = document.getElementById('instructionsPage');
+        const nextBtn = document.getElementById('nextButton');
+        const backBtn = document.getElementById('backButton');
+        const startBtn = document.getElementById('startButton');
+        const homeBtn = document.getElementById('homeButton');
+
+        function showWelcome() {
+          if (welcomeScreen) welcomeScreen.classList.remove('hidden');
+          if (instructionsPage) instructionsPage.classList.add('hidden');
+        }
+
+        function showInstructions() {
+          if (welcomeScreen) welcomeScreen.classList.add('hidden');
+          if (instructionsPage) instructionsPage.classList.remove('hidden');
+        }
+
+        if (nextBtn) nextBtn.addEventListener('click', showInstructions);
+        if (backBtn) backBtn.addEventListener('click', showWelcome);
+
+        // Modificar el comportamiento del botón "Iniciar viaje" para que además oculte ambas pantallas
+        if (startBtn) {
+          // Guardar el evento original que pueda tener game.js (startGame)
+          const originalStart = startBtn.onclick;
+          startBtn.addEventListener('click', function(e) {
+            // Ocultar ambas pantallas de presentación
+            if (welcomeScreen) welcomeScreen.classList.add('hidden');
+            if (instructionsPage) instructionsPage.classList.add('hidden');
+            // Llamar a la función startGame definida en game.js (existe globalmente)
+            if (typeof window.startGame === 'function') {
+              window.startGame();
+            } else if (typeof startGame === 'function') {
+              startGame();
+            }
+          });
+        }
+
+        // Botón "Instrucciones" en gameOverScreen debe volver a la bienvenida
+        if (homeBtn) {
+          homeBtn.addEventListener('click', function() {
+            showWelcome();
+            if (typeof window.returnHome === 'function') {
+              window.returnHome();
+            } else if (typeof returnHome === 'function') {
+              returnHome();
+            }
+          });
+        }
+
+        // Asegurar que la pantalla inicial sea la bienvenida
+        showWelcome();
+      })();
+    </script>
   </body>
 </html>
