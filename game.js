@@ -114,7 +114,7 @@
   const player = {
     x: 150,
     y: 240,
-    r: 18,            // Reducido de 23 a 18
+    r: 18,
     vx: 0,
     vy: 0,
     energy: 3,
@@ -477,6 +477,16 @@
       common.amp = rand(4, 18);
       common.spin = rand(1.1, 2.2);
       common.vx *= 0.96;
+    } else if (type === "cannibal") {
+      // Enemigo perseguidor
+      common.r = 24;
+      common.amp = 0;
+      common.drift = 0;
+      common.vx = rand(80, 140) * (Math.random() < 0.5 ? 1 : -1);
+      common.vy = rand(-60, 60);
+      common.maxSpeed = 180;
+      common.angle = 0;
+      common.mouth = 0;
     } else {
       common.r = rand(20, 30);
       common.amp = rand(18, 40);
@@ -488,37 +498,42 @@
 
   function obstacleWeight() {
     const phase = currentPhase().name;
-    if (phase === "Calma") return ["cube", "cube", "stone", "ring"];
-    if (phase === "Ascenso") return ["cube", "stone", "ring", "shard", "cube"];
-    if (phase === "Tormenta") return ["cube", "stone", "ring", "shard", "ring", "stone"];
-    return ["cube", "ring", "stone"];
+    const base = [];
+    if (phase === "Calma") base.push("cube", "cube", "stone", "ring");
+    else if (phase === "Ascenso") base.push("cube", "stone", "ring", "shard", "cube");
+    else if (phase === "Tormenta") base.push("cube", "stone", "ring", "shard", "ring", "stone");
+    else base.push("cube", "ring", "stone");
+    // Añadir caníbales con probabilidad (18% sobre el total)
+    const cannibalChance = 0.18;
+    if (Math.random() < cannibalChance) return "cannibal";
+    return base[Math.floor(Math.random() * base.length)];
   }
 
   function pickObstacleType() {
     const bag = obstacleWeight();
-    return bag[Math.floor(Math.random() * bag.length)];
+    return bag;
   }
 
-  // Generación de obstáculos MUY centrados verticalmente
+  // Generación de obstáculos FUERTEMENTE centrados verticalmente
   function clearSpawnY() {
-    const top = Math.max(100, height * 0.14);
-    const bottom = height - Math.max(88, height * 0.12);
+    const top = Math.max(100, height * 0.18);
+    const bottom = height - Math.max(88, height * 0.18);
     let best = rand(top, bottom);
     let bestScore = -Infinity;
-    for (let attempt = 0; attempt < 10; attempt += 1) {
+    for (let attempt = 0; attempt < 12; attempt += 1) {
       const y = rand(top, bottom);
       let score = 0;
-      // Evitar acumulación excesiva cerca del jugador
+      // Evitar acumulación cerca del jugador
       for (const o of state.obstacles) {
         if (o.x > width * 0.66) {
           score += Math.abs(o.y - y);
         }
       }
-      score += Math.abs(y - player.y) * 0.2;
-      // Fuerte bonificación al centro: entre 0.4 y 0.6 de la altura
+      score += Math.abs(y - player.y) * 0.15;
+      // Bonificación masiva al centro (40% - 60% de la altura)
       const center = height / 2;
       const centerDist = Math.abs(y - center);
-      const centerBonus = 300 * (1 - centerDist / (height / 2));
+      const centerBonus = 500 * (1 - centerDist / (height / 2));
       score += centerBonus;
       if (score > bestScore) {
         bestScore = score;
@@ -529,14 +544,27 @@
   }
 
   function spawnObstacle() {
+    const type = pickObstacleType();
+    // Si es caníbal, usar posición aleatoria en X (borde derecho o izquierdo) y Y
+    if (type === "cannibal") {
+      const side = Math.random() < 0.7 ? "right" : "left"; // 70% derecha, 30% izquierda
+      const x = side === "right" ? width + rand(20, 100) : -rand(20, 100);
+      const y = rand(height * 0.2, height * 0.8);
+      const cannibal = makeObstacle("cannibal", x, y);
+      cannibal.targetX = player.x;
+      cannibal.targetY = player.y;
+      state.obstacles.push(cannibal);
+      return;
+    }
+
+    // Obstáculos normales
     const x = width + rand(60, 180);
     const y = clearSpawnY();
-    const type = pickObstacleType();
     const phaseName = currentPhase().name;
     const shouldLink =
       phaseName === "Tormenta" || (phaseName === "Ascenso" && Math.random() < 0.34);
 
-    if (shouldLink && Math.random() < 0.62) {
+    if (shouldLink && Math.random() < 0.62 && type !== "cannibal") {
       const group = magnetId += 1;
       const first = makeObstacle(type, x, y, group);
       const secondType = Math.random() < 0.55 ? "stone" : pickObstacleType();
@@ -600,7 +628,7 @@
     vibrate(12);
 
     const danger = findDangerObstacle(170);
-    if (danger && !danger.nearMiss) {
+    if (danger && !danger.nearMiss && danger.type !== "cannibal") {
       danger.nearMiss = true;
       state.combo += 1;
       const bonus = 95 + state.combo * 20;
@@ -642,7 +670,7 @@
       for (const o of state.obstacles) {
         if (o.x < player.x - 90 || o.x > player.x + 360) continue;
         const futureX = o.x + o.vx * 0.38;
-        const futureY = o.y + Math.sin(o.phase + 0.4) * o.amp;
+        const futureY = o.y + (o.type === "cannibal" ? o.vy * 0.38 : Math.sin(o.phase + 0.4) * o.amp);
         const gap = Math.hypot(nx - futureX, ny - futureY) - (collisionRadius(o) + player.r);
         score += clamp(gap, -180, 240);
         if (gap < 24) score -= 420;
@@ -688,7 +716,7 @@
         o.dead = true;
         destroyed += 1;
         addParticles(o.x, o.y, obstacleColor(o), 18, 210, 5);
-      } else if (d < 302) {
+      } else if (d < 302 && o.type !== "cannibal") {
         const dir = normalize(o.x - player.x, o.y - player.y);
         o.x += dir.x * 72 + 34;
         o.baseY = clamp(o.baseY + dir.y * 70, 88, height - 76);
@@ -764,6 +792,7 @@
     let best = null;
     let bestDist = Infinity;
     for (const o of state.obstacles) {
+      if (o.type === "cannibal") continue; // No cuenta para esquivas inteligentes
       if (o.x < player.x - 70 || o.x > player.x + range) continue;
       const d = dist(player, o) - collisionRadius(o) - player.r;
       if (d < bestDist) {
@@ -777,6 +806,7 @@
   function collisionRadius(o) {
     if (o.type === "ring") return o.r + 9;
     if (o.type === "shard") return o.r * 0.9;
+    if (o.type === "cannibal") return o.r - 2;
     return o.r;
   }
 
@@ -787,6 +817,9 @@
       const centerHit = d < player.r + 10;
       return ringWall || centerHit;
     }
+    if (o.type === "cannibal") {
+      return d < player.r + o.r - 2;
+    }
     return d < player.r + collisionRadius(o);
   }
 
@@ -794,6 +827,7 @@
     if (o.type === "cube") return "#9b7dff";
     if (o.type === "stone") return "#ffd166";
     if (o.type === "ring") return "#4ee7d5";
+    if (o.type === "cannibal") return "#ff2a2a";
     return "#ff6f91";
   }
 
@@ -877,28 +911,54 @@
 
   function updateObstacles(dt) {
     for (const o of state.obstacles) {
-      o.phase += dt * o.drift;
-      o.angle += dt * o.spin;
-      o.x += o.vx * dt;
-      o.y = o.baseY + Math.sin(o.phase + o.seed) * o.amp;
-      o.pulseGlow = Math.max(0, o.pulseGlow - dt * 1.7);
-
-      o.clickAt -= dt;
-      if (o.clickAt <= 0 && o.x > -80 && o.x < width + 80 && state.mode === "playing") {
-        if (o.type === "cube" || o.type === "ring") sfx("click");
-        o.clickAt = rand(0.55, 1.4);
+      if (o.type === "cannibal") {
+        // Movimiento de persecución
+        const dx = player.x - o.x;
+        const dy = player.y - o.y;
+        const len = Math.hypot(dx, dy);
+        if (len > 0.01) {
+          const dirX = dx / len;
+          const dirY = dy / len;
+          // Velocidad de persecución: se acelera hacia el jugador, limitada a maxSpeed
+          const accel = 180 * dt;
+          o.vx += dirX * accel;
+          o.vy += dirY * accel;
+          const maxSpeed = o.maxSpeed || 180;
+          const spd = Math.hypot(o.vx, o.vy);
+          if (spd > maxSpeed) {
+            o.vx = (o.vx / spd) * maxSpeed;
+            o.vy = (o.vy / spd) * maxSpeed;
+          }
+        }
+        o.x += o.vx * dt;
+        o.y += o.vy * dt;
+        o.angle = Math.atan2(o.vy, o.vx);
+        o.mouth = (state.time * 12) % (Math.PI * 2);
+      } else {
+        o.phase += dt * o.drift;
+        o.angle += dt * o.spin;
+        o.x += o.vx * dt;
+        o.y = o.baseY + Math.sin(o.phase + o.seed) * o.amp;
+        o.pulseGlow = Math.max(0, o.pulseGlow - dt * 1.7);
+        o.clickAt -= dt;
+        if (o.clickAt <= 0 && o.x > -80 && o.x < width + 80 && state.mode === "playing") {
+          if (o.type === "cube" || o.type === "ring") sfx("click");
+          o.clickAt = rand(0.55, 1.4);
+        }
       }
 
-      if (!o.nearMiss && o.x < player.x - player.r && o.x > player.x - player.r - Math.abs(o.vx) * dt - 10) {
-        const gap = dist(player, o) - collisionRadius(o) - player.r;
-        if (gap > 0 && gap < 42) {
-          o.nearMiss = true;
-          state.combo += 1;
-          const bonus = 60 + state.combo * 12;
-          state.score += bonus;
-          addFloating("Esquiva fina +" + bonus, player.x + 18, player.y - 42, "#8cffb2");
-          showComboToast(`Cadena x${state.combo}`);
-          sfx("perfect");
+      if (o.type !== "cannibal") {
+        if (!o.nearMiss && o.x < player.x - player.r && o.x > player.x - player.r - Math.abs(o.vx) * dt - 10) {
+          const gap = dist(player, o) - collisionRadius(o) - player.r;
+          if (gap > 0 && gap < 42) {
+            o.nearMiss = true;
+            state.combo += 1;
+            const bonus = 60 + state.combo * 12;
+            state.score += bonus;
+            addFloating("Esquiva fina +" + bonus, player.x + 18, player.y - 42, "#8cffb2");
+            showComboToast(`Cadena x${state.combo}`);
+            sfx("perfect");
+          }
         }
       }
 
@@ -907,7 +967,7 @@
       }
     }
 
-    state.obstacles = state.obstacles.filter((o) => !o.dead && o.x > -160);
+    state.obstacles = state.obstacles.filter((o) => !o.dead && (o.type === "cannibal" ? (o.x > -200 && o.x < width + 200 && o.y > -200 && o.y < height + 200) : o.x > -160));
   }
 
   function handleHit(o) {
@@ -917,7 +977,7 @@
     player.invuln = 1.15;
     state.shake = 15;
     state.flash = 0.42;
-    addParticles(o.x, o.y, "#ff6f91", 30, 300, 6);
+    addParticles(o.x, o.y, obstacleColor(o), 30, 300, 6);
     addParticles(player.x, player.y, "#ffffff", 20, 220, 4);
     addRipple(player.x, player.y, "#ff4b6e", 170, 5);
     addFloating("Impacto", player.x + 10, player.y - 52, "#ff9db5");
@@ -1105,6 +1165,7 @@
       { type: "cube", x: centerX - 110, y: centerY - 78, r: 44, angle: t, pulseGlow: 0.3, phase: t, seed: 2 },
       { type: "stone", x: centerX + 82, y: centerY - 18, r: 48, angle: -t * 0.6, pulseGlow: 0.2, phase: t, seed: 5 },
       { type: "ring", x: centerX - 5, y: centerY + 98, r: 56, angle: t * 1.2, pulseGlow: 0.35, phase: t, seed: 9 },
+      { type: "cannibal", x: centerX - 40, y: centerY + 30, r: 28, angle: t * 1.5, mouth: t * 8 },
     ];
     for (const o of samples) drawObstacleShadow(o, 0.42);
     for (const o of samples) drawObstacle(o, true);
@@ -1143,6 +1204,7 @@
   }
 
   function drawObstacleShadow(o, strength = 1) {
+    if (o.type === "cannibal") return; // Sombra simple para caníbal
     const lightX = player.x - 42;
     const lightY = player.y - 120;
     const dir = normalize(o.x - lightX, o.y - lightY);
@@ -1178,18 +1240,56 @@
   }
 
   function drawObstacle(o, forceReveal = false) {
-    const reveal = forceReveal || dist(player, o) < 190 || o.pulseGlow > 0.01;
+    const reveal = forceReveal || (o.type !== "cannibal" && (dist(player, o) < 190 || o.pulseGlow > 0.01));
     ctx.save();
     ctx.translate(o.x, o.y);
-    ctx.rotate(o.angle);
-    if (o.pulseGlow > 0) {
+    if (o.type !== "cannibal") ctx.rotate(o.angle);
+    if (o.pulseGlow > 0 && o.type !== "cannibal") {
       ctx.shadowColor = "#4ee7d5";
       ctx.shadowBlur = 22 * o.pulseGlow;
     }
     if (o.type === "cube") drawMetamorphicCube(o, reveal);
     else if (o.type === "stone") drawBalanceStone(o, reveal);
     else if (o.type === "ring") drawInfiniteRing(o, reveal);
-    else drawShard(o, reveal);
+    else if (o.type === "shard") drawShard(o, reveal);
+    else if (o.type === "cannibal") drawCannibal(o, reveal);
+    ctx.restore();
+  }
+
+  function drawCannibal(o, reveal) {
+    const r = o.r;
+    const angle = o.angle;
+    const mouthOpen = Math.sin(o.mouth) * 0.7 + 0.8;
+    ctx.save();
+    ctx.rotate(angle);
+    // Cuerpo rojo
+    ctx.fillStyle = "#e31b23";
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = "#ff0000";
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, TAU);
+    ctx.fill();
+    // Ojo blanco
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(r * 0.4, -r * 0.2, r * 0.2, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#000000";
+    ctx.beginPath();
+    ctx.arc(r * 0.45, -r * 0.25, r * 0.08, 0, TAU);
+    ctx.fill();
+    // Boca de Pacman
+    const startAngle = mouthOpen * 0.8;
+    const endAngle = TAU - startAngle;
+    ctx.fillStyle = "#000000";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r, startAngle, endAngle);
+    ctx.fill();
+    ctx.fillStyle = "#e31b23";
+    ctx.beginPath();
+    ctx.arc(0, 0, r - 3, startAngle, endAngle);
+    ctx.fill();
     ctx.restore();
   }
 
