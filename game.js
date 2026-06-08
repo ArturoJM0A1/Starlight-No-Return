@@ -478,15 +478,15 @@
       common.spin = rand(1.1, 2.2);
       common.vx *= 0.96;
     } else if (type === "cannibal") {
-      common.r = 26;
+      common.r = 20; // Más pequeño
       common.amp = 0;
       common.drift = 0;
       common.vx = rand(80, 140) * (Math.random() < 0.5 ? 1 : -1);
       common.vy = rand(-60, 60);
-      common.maxSpeed = 180;
+      common.maxSpeed = 170; // Ligeramente más lento por ser pequeño
       common.angle = 0;
       common.mouth = 0;
-      common.lifeSpan = 4.5; // segundos de vida
+      common.lifeSpan = 4.5;
     } else {
       common.r = rand(20, 30);
       common.amp = rand(18, 40);
@@ -503,7 +503,6 @@
     else if (phase === "Ascenso") base.push("cube", "stone", "ring", "shard", "cube");
     else if (phase === "Tormenta") base.push("cube", "stone", "ring", "shard", "ring", "stone");
     else base.push("cube", "ring", "stone");
-    // Probabilidad de caníbal: 18%
     if (Math.random() < 0.18) return "cannibal";
     return base[Math.floor(Math.random() * base.length)];
   }
@@ -512,7 +511,6 @@
     return obstacleWeight();
   }
 
-  // Generación de obstáculos FUERTEMENTE centrados verticalmente
   function clearSpawnY() {
     const top = Math.max(100, height * 0.18);
     const bottom = height - Math.max(88, height * 0.18);
@@ -905,7 +903,6 @@
   function updateObstacles(dt) {
     for (const o of state.obstacles) {
       if (o.type === "cannibal") {
-        // Reducir tiempo de vida
         if (o.lifeSpan !== undefined) {
           o.lifeSpan -= dt;
           if (o.lifeSpan <= 0) {
@@ -914,7 +911,6 @@
             continue;
           }
         }
-        // Movimiento de persecución
         const dx = player.x - o.x;
         const dy = player.y - o.y;
         const len = Math.hypot(dx, dy);
@@ -924,7 +920,7 @@
           const accel = 180 * dt;
           o.vx += dirX * accel;
           o.vy += dirY * accel;
-          const maxSpeed = o.maxSpeed || 180;
+          const maxSpeed = o.maxSpeed || 170;
           const spd = Math.hypot(o.vx, o.vy);
           if (spd > maxSpeed) {
             o.vx = (o.vx / spd) * maxSpeed;
@@ -934,7 +930,7 @@
         o.x += o.vx * dt;
         o.y += o.vy * dt;
         o.angle = Math.atan2(o.vy, o.vx);
-        o.mouth = (state.time * 10) % (Math.PI * 2);
+        o.mouth = (state.time * 12) % (Math.PI * 2);
       } else {
         o.phase += dt * o.drift;
         o.angle += dt * o.spin;
@@ -1159,7 +1155,7 @@
       { type: "cube", x: centerX - 110, y: centerY - 78, r: 44, angle: t, pulseGlow: 0.3, phase: t, seed: 2 },
       { type: "stone", x: centerX + 82, y: centerY - 18, r: 48, angle: -t * 0.6, pulseGlow: 0.2, phase: t, seed: 5 },
       { type: "ring", x: centerX - 5, y: centerY + 98, r: 56, angle: t * 1.2, pulseGlow: 0.35, phase: t, seed: 9 },
-      { type: "cannibal", x: centerX - 40, y: centerY + 30, r: 28, angle: t * 1.5, mouth: t * 8 },
+      { type: "cannibal", x: centerX - 40, y: centerY + 30, r: 20, angle: t * 1.5, mouth: t * 8 },
     ];
     for (const o of samples) drawObstacleShadow(o, 0.42);
     for (const o of samples) drawObstacle(o, true);
@@ -1251,22 +1247,22 @@
   }
 
   function drawCannibal(o, reveal) {
-    const r = o.r;
+    const r = o.r; // ahora 20
     const angle = o.angle;
-    const mouthOpen = Math.sin(o.mouth) * 0.5 + 0.7; // apertura suave
+    const mouthOpen = Math.sin(o.mouth) * 0.6 + 0.6; // apertura para mostrar dientes
     ctx.save();
     ctx.rotate(angle);
-    // Cuerpo rojo pero más suave (rosado)
+    // Cuerpo con gradiente rojo/rosado
     const grad = ctx.createRadialGradient(-r*0.2, -r*0.2, 2, 0, 0, r);
     grad.addColorStop(0, "#ff8888");
     grad.addColorStop(1, "#dd4a4a");
     ctx.fillStyle = grad;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 8;
     ctx.shadowColor = "rgba(255,100,100,0.5)";
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, TAU);
     ctx.fill();
-    // Ojos grandes y brillantes
+    // Ojos grandes
     ctx.fillStyle = "#ffffff";
     ctx.beginPath();
     ctx.arc(r * 0.35, -r * 0.25, r * 0.22, 0, TAU);
@@ -1277,9 +1273,9 @@
     ctx.fill();
     ctx.fillStyle = "#ffffff";
     ctx.beginPath();
-    ctx.arc(r * 0.45, -r * 0.33, r * 0.04, 0, TAU);
+    ctx.arc(r * 0.45, -r * 0.33, r * 0.05, 0, TAU);
     ctx.fill();
-    // Mejillas rosadas
+    // Mejillas
     ctx.fillStyle = "#ffaaaa";
     ctx.beginPath();
     ctx.ellipse(r * 0.5, r * 0.1, r * 0.12, r * 0.08, 0, 0, TAU);
@@ -1288,7 +1284,7 @@
     ctx.beginPath();
     ctx.ellipse(-r * 0.2, r * 0.15, r * 0.12, r * 0.08, 0, 0, TAU);
     ctx.fill();
-    // Boca de Pacman más linda (sonrisa)
+    // Boca (Pacman con dientes)
     const mouthStart = mouthOpen * 0.6;
     const mouthEnd = TAU - mouthStart;
     ctx.fillStyle = "#3a1a1a";
@@ -1300,11 +1296,34 @@
     ctx.beginPath();
     ctx.arc(0, 0, r - 5, mouthStart, mouthEnd);
     ctx.fill();
-    // Pequeño lunar o detalle
-    ctx.fillStyle = "#b34a4a";
-    ctx.beginPath();
-    ctx.arc(r * 0.15, -r * 0.45, r * 0.05, 0, TAU);
-    ctx.fill();
+    // Dientes (triángulos blancos dentro de la boca)
+    if (mouthOpen > 0.4) {
+      ctx.fillStyle = "#ffffff";
+      const toothSize = r * 0.12;
+      // Diente superior
+      ctx.beginPath();
+      ctx.moveTo(r * 0.3, -r * 0.1);
+      ctx.lineTo(r * 0.45, -r * 0.25);
+      ctx.lineTo(r * 0.55, -r * 0.1);
+      ctx.fill();
+      // Diente inferior
+      ctx.beginPath();
+      ctx.moveTo(r * 0.3, r * 0.15);
+      ctx.lineTo(r * 0.45, r * 0.3);
+      ctx.lineTo(r * 0.55, r * 0.15);
+      ctx.fill();
+      // Segundo diente
+      ctx.beginPath();
+      ctx.moveTo(r * 0.6, -r * 0.05);
+      ctx.lineTo(r * 0.75, -r * 0.18);
+      ctx.lineTo(r * 0.85, -r * 0.02);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(r * 0.6, r * 0.2);
+      ctx.lineTo(r * 0.75, r * 0.33);
+      ctx.lineTo(r * 0.85, r * 0.17);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
