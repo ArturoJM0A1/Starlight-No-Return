@@ -95,7 +95,7 @@
     score: 0,
     combo: 0,
     best: Number(localStorage.getItem("cohete-metamorfico-best") || 0),
-    health: 4,
+    health: 5,
     phaseIndex: 0,
     phaseTime: 0,
     spawnTimer: 0.8,
@@ -109,6 +109,7 @@
     ripples: [],
     floating: [],
     stars: [],
+    ally: null, // { x, y, timer, shootCooldown }
   };
 
   const player = {
@@ -196,7 +197,7 @@
       distance: 0,
       score: 0,
       combo: 0,
-      health: 4,
+      health: 5,
       phaseIndex: 0,
       phaseTime: 0,
       spawnTimer: 0.6,
@@ -209,6 +210,7 @@
       particles: [],
       ripples: [],
       floating: [],
+      ally: null,
     });
     Object.assign(player, {
       x: clamp(width * 0.22, 95, 200),
@@ -406,6 +408,15 @@
         invisibleIndicator.classList.add("hidden");
       }
     }
+    const allyIndicator = document.getElementById("allyIndicator");
+    if (allyIndicator) {
+      if (state.ally && state.ally.timer > 0) {
+        allyIndicator.textContent = `🚀 ${Math.ceil(state.ally.timer)}s`;
+        allyIndicator.classList.remove("hidden");
+      } else {
+        allyIndicator.classList.add("hidden");
+      }
+    }
   }
 
   function showPhaseToast(message) {
@@ -592,11 +603,13 @@
     if (Math.random() > phase.crystals) return;
     const y = clamp(rand(height * 0.18, height * 0.84), 92, height - 78);
     
+    // Nuevas probabilidades: corazón 15%, munición 8%, arcoíris 25%, cohete verde 10%, cristal 42%
     const r = Math.random();
     let type = "crystal";
-    if (r < 0.20) type = "heart";
-    else if (r < 0.28) type = "ammo";
-    else if (r < 0.46) type = "rainbow";
+    if (r < 0.15) type = "heart";
+    else if (r < 0.23) type = "ammo";
+    else if (r < 0.48) type = "rainbow";
+    else if (r < 0.58) type = "greenRocket";
     
     const pickup = {
       x: width + rand(50, 140),
@@ -837,6 +850,56 @@
     return "#ff6f91";
   }
 
+  function updateAlly(dt) {
+    if (!state.ally) return;
+    state.ally.timer -= dt;
+    if (state.ally.timer <= 0) {
+      state.ally = null;
+      addFloating("Aliado se fue", player.x, player.y - 50, "#8cffb2");
+      return;
+    }
+    // Seguir al jugador suavemente
+    const dx = player.x - state.ally.x;
+    const dy = player.y - state.ally.y;
+    const len = Math.hypot(dx, dy);
+    if (len > 0.1) {
+      const move = Math.min(240 * dt, len);
+      const dirX = dx / len;
+      const dirY = dy / len;
+      state.ally.x += dirX * move;
+      state.ally.y += dirY * move;
+    }
+    // Disparar a enemigos cercanos
+    if (state.ally.shootCooldown > 0) {
+      state.ally.shootCooldown -= dt;
+    } else {
+      // Buscar enemigo más cercano dentro de 300 píxeles
+      let closest = null;
+      let closestDist = 400;
+      for (const o of state.obstacles) {
+        const d = dist(state.ally, o);
+        if (d < closestDist && d < 300) {
+          closestDist = d;
+          closest = o;
+        }
+      }
+      if (closest) {
+        const dir = normalize(closest.x - state.ally.x, closest.y - state.ally.y);
+        state.projectiles.push({
+          x: state.ally.x + dir.x * 12,
+          y: state.ally.y + dir.y * 12,
+          vx: dir.x * 380,
+          vy: dir.y * 380,
+          r: 4,
+          life: 0.8,
+          color: "#8cffb2"
+        });
+        state.ally.shootCooldown = 0.6;
+        sfx("shoot");
+      }
+    }
+  }
+
   function update(dt) {
     state.time += dt;
     state.distance += dt * (78 + state.phaseIndex * 4);
@@ -865,6 +928,7 @@
     updatePickups(dt);
     updateProjectiles(dt);
     updateEffects(dt);
+    updateAlly(dt);
     updateHud();
   }
 
@@ -1017,7 +1081,7 @@
       if (dist(player, p) < player.r + p.r) {
         p.dead = true;
         if (p.type === "heart") {
-          if (state.health < 4) {
+          if (state.health < 5) {
             state.health++;
             addFloating("+ Vida", p.x, p.y - 28, "#ff6f91");
           } else {
@@ -1039,6 +1103,22 @@
           addFloating("✨ ¡Invisible! ✨", p.x, p.y - 28, "#ffd166");
           addParticles(p.x, p.y, "#ff00ff", 20, 200, 5);
           sfx("collect");
+        } else if (p.type === "greenRocket") {
+          // Activar aliado (cohete verde) por 6 segundos
+          if (!state.ally) {
+            state.ally = {
+              x: player.x - 20,
+              y: player.y,
+              timer: 6.0,
+              shootCooldown: 0,
+            };
+          } else {
+            // Si ya existe, prolongar 6 segundos
+            state.ally.timer = Math.max(state.ally.timer, 6.0);
+          }
+          addFloating("🚀 ¡Aliado verde! 🚀", p.x, p.y - 28, "#8cffb2");
+          addParticles(p.x, p.y, "#8cffb2", 20, 200, 5);
+          sfx("collect");
         } else {
           if (player.energy < player.maxEnergy) {
             player.energy += 1;
@@ -1049,7 +1129,7 @@
           }
           state.score += 45;
         }
-        addParticles(p.x, p.y, p.type === "heart" ? "#ff6f91" : (p.type === "ammo" ? "#ffd166" : (p.type === "rainbow" ? "#ff00ff" : "#4ee7d5")), 16, 180, 4);
+        addParticles(p.x, p.y, p.type === "heart" ? "#ff6f91" : (p.type === "ammo" ? "#ffd166" : (p.type === "rainbow" ? "#ff00ff" : (p.type === "greenRocket" ? "#8cffb2" : "#4ee7d5"))), 16, 180, 4);
         sfx("collect");
         vibrate(8);
         updateHud();
@@ -1121,6 +1201,7 @@
     for (const o of state.obstacles) drawObstacle(o);
     drawRipples();
     drawParticles();
+    if (state.ally) drawAlly();
     drawPlayer();
     drawFloating();
 
@@ -1325,7 +1406,6 @@
     ctx.fill();
     if (mouthOpen > 0.4) {
       ctx.fillStyle = "#ffffff";
-      const toothSize = r * 0.12;
       ctx.beginPath();
       ctx.moveTo(r * 0.3, -r * 0.1);
       ctx.lineTo(r * 0.45, -r * 0.25);
@@ -1585,6 +1665,26 @@
       ctx.beginPath();
       ctx.rect(-r*0.3, -r*0.5, r*0.6, r*0.2);
       ctx.fill();
+    } else if (p.type === "greenRocket") {
+      ctx.shadowColor = "#8cffb2";
+      ctx.fillStyle = "#6fbf4c";
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r * 0.7, -r * 0.3);
+      ctx.lineTo(r * 0.4, r * 0.5);
+      ctx.lineTo(0, r * 0.8);
+      ctx.lineTo(-r * 0.4, r * 0.5);
+      ctx.lineTo(-r * 0.7, -r * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#f8fbff";
+      ctx.beginPath();
+      ctx.arc(0, -r*0.2, r*0.25, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = "#ff6f91";
+      ctx.beginPath();
+      ctx.rect(-r*0.2, r*0.3, r*0.4, r*0.3);
+      ctx.fill();
     } else {
       ctx.shadowColor = "#4ee7d5";
       const grad = ctx.createLinearGradient(-r, -r, r, r);
@@ -1607,12 +1707,41 @@
     ctx.restore();
   }
 
+  function drawAlly() {
+    if (!state.ally) return;
+    ctx.save();
+    ctx.translate(state.ally.x, state.ally.y);
+    ctx.rotate(state.time * 4);
+    const r = 16;
+    ctx.fillStyle = "#6fbf4c";
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = "#8cffb2";
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r * 0.7, -r * 0.3);
+    ctx.lineTo(r * 0.4, r * 0.5);
+    ctx.lineTo(0, r * 0.8);
+    ctx.lineTo(-r * 0.4, r * 0.5);
+    ctx.lineTo(-r * 0.7, -r * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#f8fbff";
+    ctx.beginPath();
+    ctx.arc(0, -r*0.2, r*0.25, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#ff6f91";
+    ctx.beginPath();
+    ctx.rect(-r*0.2, r*0.3, r*0.4, r*0.3);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function drawProjectiles() {
     for (const p of state.projectiles) {
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
       ctx.shadowBlur = 12;
-      ctx.shadowColor = "#ffd166";
+      ctx.shadowColor = p.color === "#8cffb2" ? "#8cffb2" : "#ffd166";
       ctx.fillStyle = p.color;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.r, 0, TAU);
@@ -1879,6 +2008,18 @@
       invPanel.style.background = "rgba(255, 215, 0, 0.3)";
       invPanel.style.borderColor = "#ffd166";
       hudDiv.appendChild(invPanel);
+    }
+  }
+  if (!document.getElementById("allyIndicator")) {
+    const hudDiv = document.querySelector(".hud");
+    if (hudDiv) {
+      const allyPanel = document.createElement("div");
+      allyPanel.className = "hud-panel";
+      allyPanel.id = "allyIndicator";
+      allyPanel.innerHTML = '<span>🚀 ALIADO</span><strong id="allyTime">0s</strong>';
+      allyPanel.style.background = "rgba(140, 255, 178, 0.3)";
+      allyPanel.style.borderColor = "#8cffb2";
+      hudDiv.appendChild(allyPanel);
     }
   }
 
