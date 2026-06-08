@@ -139,6 +139,12 @@ h2 {
   text-wrap: balance;
 }
 
+h3 {
+text-wrap: balance;
+    text-shadow: 0 0 32px rgba(78, 231, 213, 0.38), 0 12px 44px rgba(0, 0, 0, 0.5);
+      font-size: clamp(0.2rem, 1,6vw, 8.5rem);
+}
+
 .lead {
   width: min(760px, 92vw);
   margin: 18px auto 0;

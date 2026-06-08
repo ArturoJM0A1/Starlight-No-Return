@@ -32,8 +32,8 @@
     {
       name: "Calma",
       duration: 3.5,
-      spawn: 1,
-      speed: 0.92,
+      spawn: 0.2,
+      speed: 1.35,
       crystals: 0.78,
       color: "#4ee7d5",
       toast: "Calma: carga el pulso y estudia las sombras",
@@ -41,8 +41,8 @@
     {
       name: "Ascenso",
       duration: 9,
-      spawn: 0.64,
-      speed: 1.1,
+      spawn: 0.13,
+      speed: 1.65,
       crystals: 0.45,
       color: "#ffd166",
       toast: "Ascenso: las formas empiezan a cambiar",
@@ -50,8 +50,8 @@
     {
       name: "Tormenta",
       duration: 17,
-      spawn: 0.36,
-      speed: 1.33,
+      spawn: 0.07,
+      speed: 2.0,
       crystals: 0.22,
       color: "#ee597c",
       toast: "Tormenta magnetica: usa el pulso con criterio",
@@ -59,8 +59,8 @@
     {
       name: "Respiro",
       duration: 4.5,
-      spawn: 1.12,
-      speed: 0.84,
+      spawn: 0.22,
+      speed: 1.26,
       crystals: 0.95,
       color: "#8cffb2",
       toast: "Respiro: reposicionate y recoge cristales",
@@ -696,6 +696,57 @@
     updateHud();
   }
 
+  // ================= NUEVA FUNCIÓN DE DISPARO =================
+  function triggerShoot() {
+    if (state.mode !== "playing" || state.paused) return;
+    if (player.shotCooldown > 0) {
+      sfx("empty");
+      return;
+    }
+    if (player.ammo <= 0) {
+      addFloating("Sin munición", player.x, player.y - 42, "#ff9db5");
+      sfx("empty");
+      return;
+    }
+
+    player.ammo--;
+    player.shotCooldown = 0.25;
+
+    // Dirección: hacia el puntero si existe, sino hacia la derecha
+    let dirX = 1, dirY = 0;
+    if (input.pointer) {
+      const dx = input.pointerX - player.x;
+      const dy = input.pointerY - player.y;
+      const len = Math.hypot(dx, dy);
+      if (len > 0.01) {
+        dirX = dx / len;
+        dirY = dy / len;
+      }
+    } else {
+      const dx = Number(input.right) - Number(input.left);
+      const dy = Number(input.down) - Number(input.up);
+      if (Math.hypot(dx, dy) > 0.1) {
+        dirX = dx;
+        dirY = dy;
+      }
+    }
+
+    state.projectiles.push({
+      x: player.x + dirX * (player.r + 8),
+      y: player.y + dirY * (player.r + 8),
+      vx: dirX * 520,
+      vy: dirY * 520,
+      r: 6,
+      life: 1.2,
+      color: "#ffd166"
+    });
+
+    addParticles(player.x + dirX * 20, player.y + dirY * 20, "#ffd166", 6, 180, 4);
+    sfx("shoot");
+    updateHud();
+  }
+  // ============================================================
+
   function findDangerObstacle(range) {
     let best = null;
     let bestDist = Infinity;
@@ -743,12 +794,14 @@
     player.pulseCooldown = Math.max(0, player.pulseCooldown - dt);
     player.dashTimer = Math.max(0, player.dashTimer - dt);
     player.invuln = Math.max(0, player.invuln - dt);
+    player.shotCooldown = Math.max(0, player.shotCooldown - dt);
 
     updatePhase(dt);
     updatePlayer(dt);
     updateSpawning(dt);
     updateObstacles(dt);
     updatePickups(dt);
+    updateProjectiles(dt);   // <-- Actualizar proyectiles
     updateEffects(dt);
     updateHud();
   }
@@ -885,6 +938,34 @@
     state.pickups = state.pickups.filter((p) => !p.dead && p.x > -80);
   }
 
+  // ================= ACTUALIZACIÓN DE PROYECTILES =================
+  function updateProjectiles(dt) {
+    for (let i = 0; i < state.projectiles.length; i++) {
+      const p = state.projectiles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+
+      let hit = false;
+      for (let o of state.obstacles) {
+        if (dist(p, o) < p.r + collisionRadius(o)) {
+          hit = true;
+          o.dead = true;
+          addParticles(o.x, o.y, obstacleColor(o), 12, 200, 5);
+          state.score += 80;
+          addFloating("+80", o.x, o.y - 20, "#ffd166");
+          sfx("perfect");
+          break;
+        }
+      }
+      if (hit || p.life <= 0 || p.x < -100 || p.x > width + 100 || p.y < -100 || p.y > height + 100) {
+        state.projectiles.splice(i, 1);
+        i--;
+      }
+    }
+  }
+  // ================================================================
+
   function updateEffects(dt) {
     for (const p of state.particles) {
       p.x += p.vx * dt;
@@ -917,6 +998,7 @@
 
     drawMagnetConnections();
     for (const p of state.pickups) drawCrystal(p);
+    drawProjectiles();                // <-- Dibujar proyectiles
     for (const o of state.obstacles) drawObstacleShadow(o);
     for (const o of state.obstacles) drawObstacle(o);
     drawRipples();
@@ -1278,6 +1360,22 @@
     ctx.restore();
   }
 
+  // ================= DIBUJO DE PROYECTILES =================
+  function drawProjectiles() {
+    for (const p of state.projectiles) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = "#ffd166";
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+  // ==========================================================
+
   function drawRipples() {
     for (const r of state.ripples) {
       const p = 1 - r.life / r.max;
@@ -1456,6 +1554,10 @@
     }
     if (event.code === "KeyE" || event.code === "KeyX") {
       triggerPulse();
+    }
+    // Disparo con tecla Q (y opcionalmente W si se desea)
+    if (event.code === "KeyQ") {
+      triggerShoot();
     }
   });
 
