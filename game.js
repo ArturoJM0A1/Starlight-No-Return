@@ -95,7 +95,7 @@
     score: 0,
     combo: 0,
     best: Number(localStorage.getItem("cohete-metamorfico-best") || 0),
-    health: 3,
+    health: 4,
     phaseIndex: 0,
     phaseTime: 0,
     spawnTimer: 0.8,
@@ -117,10 +117,10 @@
     r: 18,
     vx: 0,
     vy: 0,
-    energy: 3,
-    maxEnergy: 3,
-    ammo: 8,
-    maxAmmo: 8,
+    energy: 5,
+    maxEnergy: 5,
+    ammo: 18,
+    maxAmmo: 18,
     dashCooldown: 0,
     dashTimer: 0,
     pulseCooldown: 0,
@@ -196,7 +196,7 @@
       distance: 0,
       score: 0,
       combo: 0,
-      health: 3,
+      health: 4,
       phaseIndex: 0,
       phaseTime: 0,
       spawnTimer: 0.6,
@@ -215,8 +215,8 @@
       y: height * 0.52,
       vx: 0,
       vy: 0,
-      energy: 3,
-      ammo: 8,
+      energy: 5,
+      ammo: 18,
       dashCooldown: 0,
       dashTimer: 0,
       pulseCooldown: 0,
@@ -397,7 +397,6 @@
       dot.className = `energy-dot${i < player.energy ? " full" : ""}`;
       energyDots.appendChild(dot);
     }
-    // Indicador de invisibilidad (opcional, lo mostramos en el HUD)
     const invisibleIndicator = document.getElementById("invisibleIndicator");
     if (invisibleIndicator) {
       if (player.invisible && player.invisibleTimer > 0) {
@@ -593,13 +592,11 @@
     if (Math.random() > phase.crystals) return;
     const y = clamp(rand(height * 0.18, height * 0.84), 92, height - 78);
     
-    // Probabilidades: corazón 24%, munición 8%, cubo arcoíris 10%, cristal 58%
     const r = Math.random();
     let type = "crystal";
-    if (r < 0.24) type = "heart";
-    else if (r < 0.32) type = "ammo";
-    else if (r < 0.42) type = "rainbow"; // nuevo
-    // resto cristal
+    if (r < 0.20) type = "heart";
+    else if (r < 0.28) type = "ammo";
+    else if (r < 0.46) type = "rainbow";
     
     const pickup = {
       x: width + rand(50, 140),
@@ -819,7 +816,7 @@
   }
 
   function collidesWithPlayer(o) {
-    if (player.invisible && player.invisibleTimer > 0) return false; // Invisible = sin daño
+    if (player.invisible && player.invisibleTimer > 0) return false;
     const d = dist(player, o);
     if (o.type === "ring") {
       const ringWall = Math.abs(d - o.r) < player.r + 6;
@@ -852,7 +849,6 @@
     player.invuln = Math.max(0, player.invuln - dt);
     player.shotCooldown = Math.max(0, player.shotCooldown - dt);
     
-    // Actualizar invisibilidad
     if (player.invisible) {
       player.invisibleTimer -= dt;
       if (player.invisibleTimer <= 0) {
@@ -1021,7 +1017,7 @@
       if (dist(player, p) < player.r + p.r) {
         p.dead = true;
         if (p.type === "heart") {
-          if (state.health < 3) {
+          if (state.health < 4) {
             state.health++;
             addFloating("+ Vida", p.x, p.y - 28, "#ff6f91");
           } else {
@@ -1037,15 +1033,13 @@
             addFloating("+60", p.x, p.y - 28, "#ffd166");
           }
         } else if (p.type === "rainbow") {
-          // Cubo arcoíris: invisibilidad por 4 segundos
           player.invisible = true;
           player.invisibleTimer = 4.0;
-          player.invuln = Math.max(player.invuln, 4.0); // también invulnerable
+          player.invuln = Math.max(player.invuln, 4.0);
           addFloating("✨ ¡Invisible! ✨", p.x, p.y - 28, "#ffd166");
           addParticles(p.x, p.y, "#ff00ff", 20, 200, 5);
           sfx("collect");
         } else {
-          // crystal
           if (player.energy < player.maxEnergy) {
             player.energy += 1;
             addFloating("+ Pulso", p.x, p.y - 28, "#4ee7d5");
@@ -1571,7 +1565,6 @@
       ctx.arc(r*0.5, 0, r*0.3, 0, TAU);
       ctx.fill();
     } else if (p.type === "rainbow") {
-      // Cubo arcoíris con gradiente multicolor
       ctx.shadowColor = "#ffffff";
       const grad = ctx.createLinearGradient(-r, -r, r, r);
       grad.addColorStop(0, "#ff0000");
@@ -1588,13 +1581,11 @@
       ctx.strokeStyle = "white";
       ctx.lineWidth = 2;
       ctx.strokeRect(-r*0.7, -r*0.7, r*1.4, r*1.4);
-      // Brillo
       ctx.fillStyle = "rgba(255,255,255,0.5)";
       ctx.beginPath();
       ctx.rect(-r*0.3, -r*0.5, r*0.6, r*0.2);
       ctx.fill();
     } else {
-      // crystal
       ctx.shadowColor = "#4ee7d5";
       const grad = ctx.createLinearGradient(-r, -r, r, r);
       grad.addColorStop(0, "#ffffff");
@@ -1674,10 +1665,9 @@
 
   function drawPlayer() {
     if (player.invisible && player.invisibleTimer > 0) {
-      ctx.globalAlpha = 0.4; // semitransparente
+      ctx.globalAlpha = 0.4;
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      // Efecto de brillo
       ctx.shadowBlur = 20;
       ctx.shadowColor = "#ffffff";
     }
@@ -1758,7 +1748,7 @@
     ctx.fill();
     ctx.restore();
     if (player.invisible && player.invisibleTimer > 0) {
-      ctx.restore(); // restaurar alpha y composite
+      ctx.restore();
     }
   }
 
@@ -1879,7 +1869,6 @@
     resize();
   });
 
-  // Añadir indicador de invisibilidad al HUD (si no existe, lo creamos)
   if (!document.getElementById("invisibleIndicator")) {
     const hudDiv = document.querySelector(".hud");
     if (hudDiv) {
