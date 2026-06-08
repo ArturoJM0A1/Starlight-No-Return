@@ -149,33 +149,39 @@
       (function() {
         const welcomeScreen = document.getElementById('welcomeScreen');
         const instructionsPage = document.getElementById('instructionsPage');
+        const gameOverScreen = document.getElementById('gameOverScreen');
         const nextBtn = document.getElementById('nextButton');
         const backBtn = document.getElementById('backButton');
         const startBtn = document.getElementById('startButton');
         const homeBtn = document.getElementById('homeButton');
+        const restartBtn = document.getElementById('restartButton');
 
+        // Mostrar solo la pantalla de bienvenida (página 1)
         function showWelcome() {
           if (welcomeScreen) welcomeScreen.classList.remove('hidden');
           if (instructionsPage) instructionsPage.classList.add('hidden');
+          if (gameOverScreen) gameOverScreen.classList.add('hidden');
         }
 
+        // Mostrar la pantalla de instrucciones (página 2)
         function showInstructions() {
           if (welcomeScreen) welcomeScreen.classList.add('hidden');
           if (instructionsPage) instructionsPage.classList.remove('hidden');
+          if (gameOverScreen) gameOverScreen.classList.add('hidden');
         }
 
+        // Navegación entre páginas
         if (nextBtn) nextBtn.addEventListener('click', showInstructions);
         if (backBtn) backBtn.addEventListener('click', showWelcome);
 
-        // Modificar el comportamiento del botón "Iniciar viaje" para que además oculte ambas pantallas
+        // Iniciar juego desde la página de instrucciones
         if (startBtn) {
-          // Guardar el evento original que pueda tener game.js (startGame)
-          const originalStart = startBtn.onclick;
           startBtn.addEventListener('click', function(e) {
             // Ocultar ambas pantallas de presentación
             if (welcomeScreen) welcomeScreen.classList.add('hidden');
             if (instructionsPage) instructionsPage.classList.add('hidden');
-            // Llamar a la función startGame definida en game.js (existe globalmente)
+            if (gameOverScreen) gameOverScreen.classList.add('hidden');
+            // Llamar a la función global startGame (definida en game.js)
             if (typeof window.startGame === 'function') {
               window.startGame();
             } else if (typeof startGame === 'function') {
@@ -184,19 +190,33 @@
           });
         }
 
-        // Botón "Instrucciones" en gameOverScreen debe volver a la bienvenida
+        // Botón "Instrucciones" en la pantalla de Game Over: debe mostrar la página de instrucciones
         if (homeBtn) {
           homeBtn.addEventListener('click', function() {
-            showWelcome();
+            // Primero, llamar a returnHome (si existe) para resetear el estado del juego
             if (typeof window.returnHome === 'function') {
               window.returnHome();
             } else if (typeof returnHome === 'function') {
               returnHome();
             }
+            // Luego mostrar las instrucciones (segunda página)
+            showInstructions();
           });
         }
 
-        // Asegurar que la pantalla inicial sea la bienvenida
+        // Botón "Reintentar" en Game Over ya tiene su propio evento en game.js (restartButton)
+        // Pero nos aseguramos de que oculte las pantallas correctamente
+        if (restartBtn) {
+          // No sobreescribimos, solo añadimos un respaldo por si acaso
+          const originalRestart = restartBtn.onclick;
+          restartBtn.addEventListener('click', function() {
+            if (welcomeScreen) welcomeScreen.classList.add('hidden');
+            if (instructionsPage) instructionsPage.classList.add('hidden');
+            if (gameOverScreen) gameOverScreen.classList.add('hidden');
+          });
+        }
+
+        // Inicialmente mostrar bienvenida
         showWelcome();
       })();
     </script>
