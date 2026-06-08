@@ -126,6 +126,8 @@
     pulseCooldown: 0,
     shotCooldown: 0,
     invuln: 0,
+    invisible: false,
+    invisibleTimer: 0,
     flame: 0,
     tilt: 0,
     lastDashVector: { x: 1, y: 0 },
@@ -220,6 +222,8 @@
       pulseCooldown: 0,
       shotCooldown: 0,
       invuln: 1.2,
+      invisible: false,
+      invisibleTimer: 0,
       flame: 0,
       tilt: 0,
       lastDashVector: { x: 1, y: 0 },
@@ -393,6 +397,16 @@
       dot.className = `energy-dot${i < player.energy ? " full" : ""}`;
       energyDots.appendChild(dot);
     }
+    // Indicador de invisibilidad (opcional, lo mostramos en el HUD)
+    const invisibleIndicator = document.getElementById("invisibleIndicator");
+    if (invisibleIndicator) {
+      if (player.invisible && player.invisibleTimer > 0) {
+        invisibleIndicator.textContent = `✨ ${Math.ceil(player.invisibleTimer)}s`;
+        invisibleIndicator.classList.remove("hidden");
+      } else {
+        invisibleIndicator.classList.add("hidden");
+      }
+    }
   }
 
   function showPhaseToast(message) {
@@ -478,12 +492,12 @@
       common.spin = rand(1.1, 2.2);
       common.vx *= 0.96;
     } else if (type === "cannibal") {
-      common.r = 20; // Más pequeño
+      common.r = 20;
       common.amp = 0;
       common.drift = 0;
       common.vx = rand(80, 140) * (Math.random() < 0.5 ? 1 : -1);
       common.vy = rand(-60, 60);
-      common.maxSpeed = 170; // Ligeramente más lento por ser pequeño
+      common.maxSpeed = 170;
       common.angle = 0;
       common.mouth = 0;
       common.lifeSpan = 4.5;
@@ -579,10 +593,13 @@
     if (Math.random() > phase.crystals) return;
     const y = clamp(rand(height * 0.18, height * 0.84), 92, height - 78);
     
+    // Probabilidades: corazón 24%, munición 8%, cubo arcoíris 10%, cristal 58%
     const r = Math.random();
     let type = "crystal";
-    if (r < 0.28) type = "heart";
-    else if (r < 0.36) type = "ammo";
+    if (r < 0.24) type = "heart";
+    else if (r < 0.32) type = "ammo";
+    else if (r < 0.42) type = "rainbow"; // nuevo
+    // resto cristal
     
     const pickup = {
       x: width + rand(50, 140),
@@ -802,6 +819,7 @@
   }
 
   function collidesWithPlayer(o) {
+    if (player.invisible && player.invisibleTimer > 0) return false; // Invisible = sin daño
     const d = dist(player, o);
     if (o.type === "ring") {
       const ringWall = Math.abs(d - o.r) < player.r + 6;
@@ -833,6 +851,16 @@
     player.dashTimer = Math.max(0, player.dashTimer - dt);
     player.invuln = Math.max(0, player.invuln - dt);
     player.shotCooldown = Math.max(0, player.shotCooldown - dt);
+    
+    // Actualizar invisibilidad
+    if (player.invisible) {
+      player.invisibleTimer -= dt;
+      if (player.invisibleTimer <= 0) {
+        player.invisible = false;
+        player.invisibleTimer = 0;
+        addFloating("Invisibilidad terminada", player.x, player.y - 40, "#4ee7d5");
+      }
+    }
 
     updatePhase(dt);
     updatePlayer(dt);
@@ -1008,7 +1036,16 @@
             state.score += 60;
             addFloating("+60", p.x, p.y - 28, "#ffd166");
           }
+        } else if (p.type === "rainbow") {
+          // Cubo arcoíris: invisibilidad por 4 segundos
+          player.invisible = true;
+          player.invisibleTimer = 4.0;
+          player.invuln = Math.max(player.invuln, 4.0); // también invulnerable
+          addFloating("✨ ¡Invisible! ✨", p.x, p.y - 28, "#ffd166");
+          addParticles(p.x, p.y, "#ff00ff", 20, 200, 5);
+          sfx("collect");
         } else {
+          // crystal
           if (player.energy < player.maxEnergy) {
             player.energy += 1;
             addFloating("+ Pulso", p.x, p.y - 28, "#4ee7d5");
@@ -1018,7 +1055,7 @@
           }
           state.score += 45;
         }
-        addParticles(p.x, p.y, p.type === "heart" ? "#ff6f91" : (p.type === "ammo" ? "#ffd166" : "#4ee7d5"), 16, 180, 4);
+        addParticles(p.x, p.y, p.type === "heart" ? "#ff6f91" : (p.type === "ammo" ? "#ffd166" : (p.type === "rainbow" ? "#ff00ff" : "#4ee7d5")), 16, 180, 4);
         sfx("collect");
         vibrate(8);
         updateHud();
@@ -1247,12 +1284,11 @@
   }
 
   function drawCannibal(o, reveal) {
-    const r = o.r; // ahora 20
+    const r = o.r;
     const angle = o.angle;
-    const mouthOpen = Math.sin(o.mouth) * 0.6 + 0.6; // apertura para mostrar dientes
+    const mouthOpen = Math.sin(o.mouth) * 0.6 + 0.6;
     ctx.save();
     ctx.rotate(angle);
-    // Cuerpo con gradiente rojo/rosado
     const grad = ctx.createRadialGradient(-r*0.2, -r*0.2, 2, 0, 0, r);
     grad.addColorStop(0, "#ff8888");
     grad.addColorStop(1, "#dd4a4a");
@@ -1262,7 +1298,6 @@
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, TAU);
     ctx.fill();
-    // Ojos grandes
     ctx.fillStyle = "#ffffff";
     ctx.beginPath();
     ctx.arc(r * 0.35, -r * 0.25, r * 0.22, 0, TAU);
@@ -1275,7 +1310,6 @@
     ctx.beginPath();
     ctx.arc(r * 0.45, -r * 0.33, r * 0.05, 0, TAU);
     ctx.fill();
-    // Mejillas
     ctx.fillStyle = "#ffaaaa";
     ctx.beginPath();
     ctx.ellipse(r * 0.5, r * 0.1, r * 0.12, r * 0.08, 0, 0, TAU);
@@ -1284,7 +1318,6 @@
     ctx.beginPath();
     ctx.ellipse(-r * 0.2, r * 0.15, r * 0.12, r * 0.08, 0, 0, TAU);
     ctx.fill();
-    // Boca (Pacman con dientes)
     const mouthStart = mouthOpen * 0.6;
     const mouthEnd = TAU - mouthStart;
     ctx.fillStyle = "#3a1a1a";
@@ -1296,23 +1329,19 @@
     ctx.beginPath();
     ctx.arc(0, 0, r - 5, mouthStart, mouthEnd);
     ctx.fill();
-    // Dientes (triángulos blancos dentro de la boca)
     if (mouthOpen > 0.4) {
       ctx.fillStyle = "#ffffff";
       const toothSize = r * 0.12;
-      // Diente superior
       ctx.beginPath();
       ctx.moveTo(r * 0.3, -r * 0.1);
       ctx.lineTo(r * 0.45, -r * 0.25);
       ctx.lineTo(r * 0.55, -r * 0.1);
       ctx.fill();
-      // Diente inferior
       ctx.beginPath();
       ctx.moveTo(r * 0.3, r * 0.15);
       ctx.lineTo(r * 0.45, r * 0.3);
       ctx.lineTo(r * 0.55, r * 0.15);
       ctx.fill();
-      // Segundo diente
       ctx.beginPath();
       ctx.moveTo(r * 0.6, -r * 0.05);
       ctx.lineTo(r * 0.75, -r * 0.18);
@@ -1541,7 +1570,31 @@
       ctx.beginPath();
       ctx.arc(r*0.5, 0, r*0.3, 0, TAU);
       ctx.fill();
+    } else if (p.type === "rainbow") {
+      // Cubo arcoíris con gradiente multicolor
+      ctx.shadowColor = "#ffffff";
+      const grad = ctx.createLinearGradient(-r, -r, r, r);
+      grad.addColorStop(0, "#ff0000");
+      grad.addColorStop(0.16, "#ff8800");
+      grad.addColorStop(0.33, "#ffff00");
+      grad.addColorStop(0.5, "#00ff00");
+      grad.addColorStop(0.66, "#0088ff");
+      grad.addColorStop(0.83, "#4400ff");
+      grad.addColorStop(1, "#ff00ff");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.rect(-r*0.7, -r*0.7, r*1.4, r*1.4);
+      ctx.fill();
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-r*0.7, -r*0.7, r*1.4, r*1.4);
+      // Brillo
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.beginPath();
+      ctx.rect(-r*0.3, -r*0.5, r*0.6, r*0.2);
+      ctx.fill();
     } else {
+      // crystal
       ctx.shadowColor = "#4ee7d5";
       const grad = ctx.createLinearGradient(-r, -r, r, r);
       grad.addColorStop(0, "#ffffff");
@@ -1620,11 +1673,19 @@
   }
 
   function drawPlayer() {
+    if (player.invisible && player.invisibleTimer > 0) {
+      ctx.globalAlpha = 0.4; // semitransparente
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      // Efecto de brillo
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = "#ffffff";
+    }
     ctx.save();
     ctx.translate(player.x, player.y);
     ctx.rotate(player.tilt);
 
-    const inv = player.invuln > 0 && Math.sin(state.time * 32) > 0;
+    const inv = player.invuln > 0 && Math.sin(state.time * 32) > 0 && !player.invisible;
     if (inv) ctx.globalAlpha = 0.72;
 
     const flamePulse = Math.sin(player.flame) * 0.22 + 0.78;
@@ -1696,6 +1757,9 @@
     ctx.ellipse(-3, 9, 16, 3, 0, 0, TAU);
     ctx.fill();
     ctx.restore();
+    if (player.invisible && player.invisibleTimer > 0) {
+      ctx.restore(); // restaurar alpha y composite
+    }
   }
 
   function drawVignette() {
@@ -1814,6 +1878,20 @@
     buildStars();
     resize();
   });
+
+  // Añadir indicador de invisibilidad al HUD (si no existe, lo creamos)
+  if (!document.getElementById("invisibleIndicator")) {
+    const hudDiv = document.querySelector(".hud");
+    if (hudDiv) {
+      const invPanel = document.createElement("div");
+      invPanel.className = "hud-panel";
+      invPanel.id = "invisibleIndicator";
+      invPanel.innerHTML = '<span>✨ INVISIBLE</span><strong id="invisTime">0s</strong>';
+      invPanel.style.background = "rgba(255, 215, 0, 0.3)";
+      invPanel.style.borderColor = "#ffd166";
+      hudDiv.appendChild(invPanel);
+    }
+  }
 
   resize();
   requestAnimationFrame(frame);
