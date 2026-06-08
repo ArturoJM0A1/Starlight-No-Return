@@ -12,6 +12,7 @@
   const phaseValue = document.getElementById("phaseValue");
   const healthValue = document.getElementById("healthValue");
   const energyDots = document.getElementById("energyDots");
+  const ammoValue = document.getElementById("ammoValue");
   const phaseToast = document.getElementById("phaseToast");
   const comboToast = document.getElementById("comboToast");
   const finalStats = document.getElementById("finalStats");
@@ -26,41 +27,41 @@
   const dashTouch = document.getElementById("dashTouch");
   const pulseTouch = document.getElementById("pulseTouch");
 
-  const TAU = Math.PI * 2;
+  const TAU = Math.PI * 20;
   const PHASES = [
     {
       name: "Calma",
-      duration: 7.5,
-      spawn: 1.2,
-      speed: 0.82,
-      crystals: 0.9,
+      duration: 3.5,
+      spawn: 1,
+      speed: 0.92,
+      crystals: 0.78,
       color: "#4ee7d5",
       toast: "Calma: carga el pulso y estudia las sombras",
     },
     {
       name: "Ascenso",
-      duration: 10,
-      spawn: 0.78,
-      speed: 1,
-      crystals: 0.54,
+      duration: 9,
+      spawn: 0.64,
+      speed: 1.1,
+      crystals: 0.45,
       color: "#ffd166",
       toast: "Ascenso: las formas empiezan a cambiar",
     },
     {
       name: "Tormenta",
-      duration: 12,
-      spawn: 0.47,
-      speed: 1.2,
-      crystals: 0.27,
-      color: "#ff6f91",
+      duration: 17,
+      spawn: 0.36,
+      speed: 1.33,
+      crystals: 0.22,
+      color: "#ee597c",
       toast: "Tormenta magnetica: usa el pulso con criterio",
     },
     {
       name: "Respiro",
-      duration: 5.5,
-      spawn: 1.45,
-      speed: 0.74,
-      crystals: 1.12,
+      duration: 4.5,
+      spawn: 1.12,
+      speed: 0.84,
+      crystals: 0.95,
       color: "#8cffb2",
       toast: "Respiro: reposicionate y recoge cristales",
     },
@@ -102,6 +103,7 @@
     shake: 0,
     flash: 0,
     obstacles: [],
+    projectiles: [],
     pickups: [],
     particles: [],
     ripples: [],
@@ -117,9 +119,12 @@
     vy: 0,
     energy: 3,
     maxEnergy: 3,
+    ammo: 8,
+    maxAmmo: 8,
     dashCooldown: 0,
     dashTimer: 0,
     pulseCooldown: 0,
+    shotCooldown: 0,
     invuln: 0,
     flame: 0,
     tilt: 0,
@@ -197,6 +202,7 @@
       shake: 0,
       flash: 0,
       obstacles: [],
+      projectiles: [],
       pickups: [],
       particles: [],
       ripples: [],
@@ -208,9 +214,11 @@
       vx: 0,
       vy: 0,
       energy: 3,
+      ammo: 8,
       dashCooldown: 0,
       dashTimer: 0,
       pulseCooldown: 0,
+      shotCooldown: 0,
       invuln: 1.2,
       flame: 0,
       tilt: 0,
@@ -329,6 +337,12 @@
         const osc = makeOsc(520, "triangle", 0.12, 0.24);
         osc.frequency.exponentialRampToValueAtTime(980, now + 0.24);
       },
+      shoot: () => {
+        master.gain.exponentialRampToValueAtTime(0.14, now + 0.008);
+        const osc = makeOsc(760, "square", 0.08, 0.08);
+        osc.frequency.exponentialRampToValueAtTime(1180, now + 0.08);
+        makeOsc(1540, "triangle", 0.04, 0.05);
+      },
       collect: () => {
         master.gain.exponentialRampToValueAtTime(0.18, now + 0.012);
         makeOsc(880, "sine", 0.12, 0.12);
@@ -372,6 +386,7 @@
     phaseValue.textContent = currentPhase().name;
     phaseValue.style.color = currentPhase().color;
     healthValue.textContent = state.health;
+    ammoValue.textContent = player.ammo;
     energyDots.innerHTML = "";
     for (let i = 0; i < player.maxEnergy; i += 1) {
       const dot = document.createElement("span");
