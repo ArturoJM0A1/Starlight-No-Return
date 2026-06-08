@@ -513,6 +513,9 @@
         }
       }
       score += Math.abs(y - player.y) * 0.32;
+      // Bonus para que aparezcan más en el centro vertical
+      const centerBonus = 120 * (1 - Math.abs(y - height/2) / (height/2));
+      score += centerBonus;
       if (score > bestScore) {
         bestScore = score;
         best = y;
@@ -547,11 +550,19 @@
     state.obstacles.push(makeObstacle(type, x, y));
   }
 
-  function spawnCrystal() {
+  // Ahora genera cristales, corazones o munición
+  function spawnPickup() {
     const phase = currentPhase();
     if (Math.random() > phase.crystals) return;
     const y = clamp(rand(height * 0.18, height * 0.84), 92, height - 78);
-    state.pickups.push({
+    
+    // Determinar tipo: corazón (12%), munición (12%), cristal (76%)
+    const r = Math.random();
+    let type = "crystal";
+    if (r < 0.12) type = "heart";
+    else if (r < 0.24) type = "ammo";
+    
+    const pickup = {
       x: width + rand(50, 140),
       y,
       baseY: y,
@@ -559,7 +570,9 @@
       r: 18,
       phase: rand(0, TAU),
       spin: rand(-2, 2),
-    });
+      type: type,
+    };
+    state.pickups.push(pickup);
   }
 
   function triggerDash() {
@@ -696,7 +709,6 @@
     updateHud();
   }
 
-  // ================= NUEVA FUNCIÓN DE DISPARO =================
   function triggerShoot() {
     if (state.mode !== "playing" || state.paused) return;
     if (player.shotCooldown > 0) {
@@ -712,7 +724,6 @@
     player.ammo--;
     player.shotCooldown = 0.25;
 
-    // Dirección: hacia el puntero si existe, sino hacia la derecha
     let dirX = 1, dirY = 0;
     if (input.pointer) {
       const dx = input.pointerX - player.x;
@@ -745,7 +756,6 @@
     sfx("shoot");
     updateHud();
   }
-  // ============================================================
 
   function findDangerObstacle(range) {
     let best = null;
@@ -801,7 +811,7 @@
     updateSpawning(dt);
     updateObstacles(dt);
     updatePickups(dt);
-    updateProjectiles(dt);   // <-- Actualizar proyectiles
+    updateProjectiles(dt);
     updateEffects(dt);
     updateHud();
   }
@@ -857,7 +867,7 @@
       state.spawnTimer = phase.spawn * difficulty * rand(0.72, 1.24);
     }
     if (state.crystalTimer <= 0) {
-      spawnCrystal();
+      spawnPickup(); // ahora genera cristal, corazón o munición
       state.crystalTimer = rand(1.8, 3.2) / Math.max(phase.crystals, 0.3);
     }
   }
@@ -922,23 +932,48 @@
       p.y = p.baseY + Math.sin(p.phase) * 18;
       if (dist(player, p) < player.r + p.r) {
         p.dead = true;
-        if (player.energy < player.maxEnergy) {
-          player.energy += 1;
-          addFloating("+ Pulso", p.x, p.y - 28, "#4ee7d5");
-        } else {
-          state.score += 120;
-          addFloating("+120", p.x, p.y - 28, "#ffd166");
+        let consumed = false;
+        
+        if (p.type === "heart") {
+          if (state.health < 3) {
+            state.health++;
+            addFloating("+ Vida", p.x, p.y - 28, "#ff6f91");
+            consumed = true;
+          } else {
+            state.score += 80;
+            addFloating("+80", p.x, p.y - 28, "#ffd166");
+            consumed = true;
+          }
+        } else if (p.type === "ammo") {
+          if (player.ammo < player.maxAmmo) {
+            player.ammo = Math.min(player.maxAmmo, player.ammo + 3);
+            addFloating("+ Munición", p.x, p.y - 28, "#ffd166");
+            consumed = true;
+          } else {
+            state.score += 60;
+            addFloating("+60", p.x, p.y - 28, "#ffd166");
+            consumed = true;
+          }
+        } else { // crystal
+          if (player.energy < player.maxEnergy) {
+            player.energy += 1;
+            addFloating("+ Pulso", p.x, p.y - 28, "#4ee7d5");
+          } else {
+            state.score += 120;
+            addFloating("+120", p.x, p.y - 28, "#ffd166");
+          }
+          state.score += 45;
         }
-        state.score += 45;
-        addParticles(p.x, p.y, "#4ee7d5", 16, 180, 4);
+        
+        addParticles(p.x, p.y, p.type === "heart" ? "#ff6f91" : (p.type === "ammo" ? "#ffd166" : "#4ee7d5"), 16, 180, 4);
         sfx("collect");
         vibrate(8);
+        updateHud();
       }
     }
     state.pickups = state.pickups.filter((p) => !p.dead && p.x > -80);
   }
 
-  // ================= ACTUALIZACIÓN DE PROYECTILES =================
   function updateProjectiles(dt) {
     for (let i = 0; i < state.projectiles.length; i++) {
       const p = state.projectiles[i];
@@ -964,7 +999,6 @@
       }
     }
   }
-  // ================================================================
 
   function updateEffects(dt) {
     for (const p of state.particles) {
@@ -997,8 +1031,8 @@
     }
 
     drawMagnetConnections();
-    for (const p of state.pickups) drawCrystal(p);
-    drawProjectiles();                // <-- Dibujar proyectiles
+    for (const p of state.pickups) drawPickup(p);
+    drawProjectiles();
     for (const o of state.obstacles) drawObstacleShadow(o);
     for (const o of state.obstacles) drawObstacle(o);
     drawRipples();
@@ -1333,34 +1367,66 @@
     }
   }
 
-  function drawCrystal(p) {
+  function drawPickup(p) {
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(p.phase + p.spin);
     const r = p.r;
     ctx.globalCompositeOperation = "lighter";
-    ctx.shadowColor = "#4ee7d5";
     ctx.shadowBlur = 18;
-    const grad = ctx.createLinearGradient(-r, -r, r, r);
-    grad.addColorStop(0, "#ffffff");
-    grad.addColorStop(0.38, "#4ee7d5");
-    grad.addColorStop(1, "#9b7dff");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r * 0.75, -r * 0.12);
-    ctx.lineTo(r * 0.42, r);
-    ctx.lineTo(-r * 0.42, r);
-    ctx.lineTo(-r * 0.75, -r * 0.12);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.82)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    
+    if (p.type === "heart") {
+      ctx.shadowColor = "#ff6f91";
+      ctx.fillStyle = "#ff4b6e";
+      ctx.beginPath();
+      ctx.moveTo(0, -r*0.7);
+      ctx.bezierCurveTo(-r*0.5, -r*1.2, -r*0.8, -r*0.3, 0, r*0.5);
+      ctx.bezierCurveTo(r*0.8, -r*0.3, r*0.5, -r*1.2, 0, -r*0.7);
+      ctx.fill();
+      ctx.fillStyle = "white";
+      ctx.beginPath();
+      ctx.arc(-r*0.25, -r*0.2, r*0.18, 0, TAU);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(r*0.25, -r*0.2, r*0.18, 0, TAU);
+      ctx.fill();
+    } else if (p.type === "ammo") {
+      ctx.shadowColor = "#ffd166";
+      ctx.fillStyle = "#ffd166";
+      ctx.beginPath();
+      ctx.rect(-r*0.6, -r*0.4, r*1.2, r*0.8);
+      ctx.fill();
+      ctx.fillStyle = "#f8fbff";
+      ctx.beginPath();
+      ctx.rect(-r*0.3, -r*0.2, r*0.6, r*0.4);
+      ctx.fill();
+      ctx.fillStyle = "#ff6f91";
+      ctx.beginPath();
+      ctx.arc(r*0.5, 0, r*0.3, 0, TAU);
+      ctx.fill();
+    } else {
+      // crystal (original)
+      ctx.shadowColor = "#4ee7d5";
+      const grad = ctx.createLinearGradient(-r, -r, r, r);
+      grad.addColorStop(0, "#ffffff");
+      grad.addColorStop(0.38, "#4ee7d5");
+      grad.addColorStop(1, "#9b7dff");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r * 0.75, -r * 0.12);
+      ctx.lineTo(r * 0.42, r);
+      ctx.lineTo(-r * 0.42, r);
+      ctx.lineTo(-r * 0.75, -r * 0.12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.82)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
-  // ================= DIBUJO DE PROYECTILES =================
   function drawProjectiles() {
     for (const p of state.projectiles) {
       ctx.save();
@@ -1374,7 +1440,6 @@
       ctx.restore();
     }
   }
-  // ==========================================================
 
   function drawRipples() {
     for (const r of state.ripples) {
@@ -1555,7 +1620,6 @@
     if (event.code === "KeyE" || event.code === "KeyX") {
       triggerPulse();
     }
-    // Disparo con tecla Q (y opcionalmente W si se desea)
     if (event.code === "KeyQ") {
       triggerShoot();
     }
