@@ -95,7 +95,7 @@
     score: 0,
     combo: 0,
     best: Number(localStorage.getItem("cohete-metamorfico-best") || 0),
-    health: 5,
+    health: 6,
     phaseIndex: 0,
     phaseTime: 0,
     spawnTimer: 0.8,
@@ -109,13 +109,13 @@
     ripples: [],
     floating: [],
     stars: [],
-    ally: null, // { x, y, timer, shootCooldown }
+    ally: null,
   };
 
   const player = {
     x: 150,
     y: 240,
-    r: 18,
+    r: 16,                // Más pequeño
     vx: 0,
     vy: 0,
     energy: 5,
@@ -167,8 +167,8 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     if (!state.stars.length) buildStars();
-    player.x = clamp(player.x || 150, 68, width - 78);
-    player.y = clamp(player.y || height / 2, 82, height - 68);
+    player.x = clamp(player.x || 150, 64, width - 72);
+    player.y = clamp(player.y || height / 2, 78, height - 64);
   }
 
   function buildStars() {
@@ -197,7 +197,7 @@
       distance: 0,
       score: 0,
       combo: 0,
-      health: 5,
+      health: 6,
       phaseIndex: 0,
       phaseTime: 0,
       spawnTimer: 0.6,
@@ -213,7 +213,7 @@
       ally: null,
     });
     Object.assign(player, {
-      x: clamp(width * 0.22, 95, 200),
+      x: clamp(width * 0.22, 90, 190),
       y: height * 0.52,
       vx: 0,
       vy: 0,
@@ -603,13 +603,14 @@
     if (Math.random() > phase.crystals) return;
     const y = clamp(rand(height * 0.18, height * 0.84), 92, height - 78);
     
-    // Nuevas probabilidades: corazón 15%, munición 8%, arcoíris 25%, cohete verde 10%, cristal 42%
+    // Nuevas probabilidades: más corazones, arcoíris y cohetes verdes
     const r = Math.random();
     let type = "crystal";
-    if (r < 0.15) type = "heart";
-    else if (r < 0.23) type = "ammo";
-    else if (r < 0.48) type = "rainbow";
-    else if (r < 0.58) type = "greenRocket";
+    if (r < 0.20) type = "heart";        // 20% corazones
+    else if (r < 0.28) type = "ammo";    // 8% munición
+    else if (r < 0.58) type = "rainbow"; // 30% arcoíris
+    else if (r < 0.74) type = "greenRocket"; // 16% cohete verde
+    // resto 26% cristal
     
     const pickup = {
       x: width + rand(50, 140),
@@ -632,8 +633,8 @@
     }
     const vec = chooseDashVector();
     player.lastDashVector = vec;
-    player.x = clamp(player.x + vec.x * 118, 58, width - 60);
-    player.y = clamp(player.y + vec.y * 118, 68, height - 58);
+    player.x = clamp(player.x + vec.x * 110, 54, width - 56);
+    player.y = clamp(player.y + vec.y * 110, 64, height - 54);
     player.vx += vec.x * 240;
     player.vy += vec.y * 240;
     player.dashCooldown = 0.75;
@@ -681,8 +682,8 @@
     let bestScore = -Infinity;
     for (const raw of candidates) {
       const c = normalize(raw.x, raw.y);
-      const nx = clamp(player.x + c.x * 118, 58, width - 60);
-      const ny = clamp(player.y + c.y * 118, 68, height - 58);
+      const nx = clamp(player.x + c.x * 110, 54, width - 56);
+      const ny = clamp(player.y + c.y * 110, 64, height - 54);
       let score = nx * 0.12;
       score -= Math.abs(ny - height * 0.5) * 0.04;
       for (const o of state.obstacles) {
@@ -792,8 +793,8 @@
     }
 
     state.projectiles.push({
-      x: player.x + dirX * (player.r + 6),
-      y: player.y + dirY * (player.r + 6),
+      x: player.x + dirX * (player.r + 5),
+      y: player.y + dirY * (player.r + 5),
       vx: dirX * 520,
       vy: dirY * 520,
       r: 5,
@@ -801,7 +802,7 @@
       color: "#ffd166"
     });
 
-    addParticles(player.x + dirX * 18, player.y + dirY * 18, "#ffd166", 5, 180, 3);
+    addParticles(player.x + dirX * 16, player.y + dirY * 16, "#ffd166", 5, 180, 3);
     sfx("shoot");
     updateHud();
   }
@@ -832,8 +833,8 @@
     if (player.invisible && player.invisibleTimer > 0) return false;
     const d = dist(player, o);
     if (o.type === "ring") {
-      const ringWall = Math.abs(d - o.r) < player.r + 6;
-      const centerHit = d < player.r + 10;
+      const ringWall = Math.abs(d - o.r) < player.r + 5;
+      const centerHit = d < player.r + 8;
       return ringWall || centerHit;
     }
     if (o.type === "cannibal") {
@@ -858,7 +859,6 @@
       addFloating("Aliado se fue", player.x, player.y - 50, "#8cffb2");
       return;
     }
-    // Seguir al jugador suavemente
     const dx = player.x - state.ally.x;
     const dy = player.y - state.ally.y;
     const len = Math.hypot(dx, dy);
@@ -869,11 +869,9 @@
       state.ally.x += dirX * move;
       state.ally.y += dirY * move;
     }
-    // Disparar a enemigos cercanos
     if (state.ally.shootCooldown > 0) {
       state.ally.shootCooldown -= dt;
     } else {
-      // Buscar enemigo más cercano dentro de 300 píxeles
       let closest = null;
       let closestDist = 400;
       for (const o of state.obstacles) {
@@ -965,10 +963,10 @@
     player.x += player.vx * dt;
     player.y += player.vy * dt;
 
-    const marginX = 48;
-    const top = state.mode === "playing" ? 68 : 48;
+    const marginX = 44;
+    const top = state.mode === "playing" ? 64 : 44;
     player.x = clamp(player.x, marginX, width - marginX);
-    player.y = clamp(player.y, top, height - 48);
+    player.y = clamp(player.y, top, height - 44);
     player.flame += dt * (player.dashTimer > 0 ? 22 : 9);
     player.tilt += ((player.vy / 520) - player.tilt) * Math.min(1, dt * 8);
   }
@@ -1081,7 +1079,7 @@
       if (dist(player, p) < player.r + p.r) {
         p.dead = true;
         if (p.type === "heart") {
-          if (state.health < 5) {
+          if (state.health < 6) {
             state.health++;
             addFloating("+ Vida", p.x, p.y - 28, "#ff6f91");
           } else {
@@ -1104,7 +1102,6 @@
           addParticles(p.x, p.y, "#ff00ff", 20, 200, 5);
           sfx("collect");
         } else if (p.type === "greenRocket") {
-          // Activar aliado (cohete verde) por 6 segundos
           if (!state.ally) {
             state.ally = {
               x: player.x - 20,
@@ -1113,7 +1110,6 @@
               shootCooldown: 0,
             };
           } else {
-            // Si ya existe, prolongar 6 segundos
             state.ally.timer = Math.max(state.ally.timer, 6.0);
           }
           addFloating("🚀 ¡Aliado verde! 🚀", p.x, p.y - 28, "#8cffb2");
@@ -1712,7 +1708,7 @@
     ctx.save();
     ctx.translate(state.ally.x, state.ally.y);
     ctx.rotate(state.time * 4);
-    const r = 16;
+    const r = 14;  // un poco más pequeño
     ctx.fillStyle = "#6fbf4c";
     ctx.shadowBlur = 12;
     ctx.shadowColor = "#8cffb2";
@@ -1808,36 +1804,36 @@
     if (inv) ctx.globalAlpha = 0.72;
 
     const flamePulse = Math.sin(player.flame) * 0.22 + 0.78;
-    const flameLong = player.dashTimer > 0 ? 48 : 24;
+    const flameLong = player.dashTimer > 0 ? 44 : 20;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    const flame = ctx.createLinearGradient(-30 - flameLong, 0, -16, 0);
+    const flame = ctx.createLinearGradient(-28 - flameLong, 0, -14, 0);
     flame.addColorStop(0, "rgba(78, 231, 213, 0)");
     flame.addColorStop(0.35, "rgba(255, 209, 102, 0.62)");
     flame.addColorStop(0.7, "rgba(255, 111, 145, 0.88)");
     flame.addColorStop(1, "rgba(255,255,255,0.96)");
     ctx.fillStyle = flame;
     ctx.beginPath();
-    ctx.moveTo(-22, -7);
-    ctx.quadraticCurveTo(-30 - flameLong * flamePulse, 0, -22, 7);
+    ctx.moveTo(-20, -6);
+    ctx.quadraticCurveTo(-28 - flameLong * flamePulse, 0, -20, 6);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
 
     ctx.shadowColor = player.dashTimer > 0 ? "#8cffb2" : "#4ee7d5";
-    ctx.shadowBlur = player.dashTimer > 0 ? 24 : 12;
+    ctx.shadowBlur = player.dashTimer > 0 ? 20 : 10;
 
-    const body = ctx.createLinearGradient(-20, -14, 28, 14);
+    const body = ctx.createLinearGradient(-18, -12, 24, 12);
     body.addColorStop(0, "#eaf7ff");
     body.addColorStop(0.46, "#8bdcff");
     body.addColorStop(0.76, "#ffffff");
     body.addColorStop(1, "#ff6f91");
     ctx.fillStyle = body;
     ctx.beginPath();
-    ctx.moveTo(28, 0);
-    ctx.bezierCurveTo(16, -18, -14, -17, -24, -7);
-    ctx.lineTo(-24, 7);
-    ctx.bezierCurveTo(-14, 17, 16, 18, 28, 0);
+    ctx.moveTo(24, 0);
+    ctx.bezierCurveTo(14, -16, -12, -15, -22, -6);
+    ctx.lineTo(-22, 6);
+    ctx.bezierCurveTo(-12, 15, 14, 16, 24, 0);
     ctx.closePath();
     ctx.fill();
     ctx.lineWidth = 1.5;
@@ -1846,25 +1842,25 @@
 
     ctx.fillStyle = "#ff6f91";
     ctx.beginPath();
-    ctx.moveTo(-14, -9);
-    ctx.lineTo(-30, -20);
-    ctx.lineTo(-23, -2);
+    ctx.moveTo(-12, -8);
+    ctx.lineTo(-26, -18);
+    ctx.lineTo(-20, -2);
     ctx.closePath();
     ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(-14, 9);
-    ctx.lineTo(-30, 20);
-    ctx.lineTo(-23, 2);
+    ctx.moveTo(-12, 8);
+    ctx.lineTo(-26, 18);
+    ctx.lineTo(-20, 2);
     ctx.closePath();
     ctx.fill();
 
-    const windowGrad = ctx.createRadialGradient(10, -4, 2, 10, -4, 9);
+    const windowGrad = ctx.createRadialGradient(8, -3, 2, 8, -3, 7);
     windowGrad.addColorStop(0, "#ffffff");
     windowGrad.addColorStop(0.38, "#4ee7d5");
     windowGrad.addColorStop(1, "#1b4b74");
     ctx.fillStyle = windowGrad;
     ctx.beginPath();
-    ctx.arc(10, -3, 7, 0, TAU);
+    ctx.arc(8, -2, 6, 0, TAU);
     ctx.fill();
     ctx.strokeStyle = "rgba(4, 12, 26, 0.42)";
     ctx.lineWidth = 1.5;
@@ -1873,7 +1869,7 @@
     ctx.fillStyle = "#071225";
     ctx.globalAlpha *= 0.15;
     ctx.beginPath();
-    ctx.ellipse(-3, 9, 16, 3, 0, 0, TAU);
+    ctx.ellipse(-2, 8, 14, 3, 0, 0, TAU);
     ctx.fill();
     ctx.restore();
     if (player.invisible && player.invisibleTimer > 0) {

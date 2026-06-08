@@ -2,58 +2,90 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
     <title>Starlight: No Return</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="game-shell" aria-label="Juego Cohete Metamorfico">
-      <canvas id="gameCanvas" aria-label="Area de juego"></canvas>
+    <main class="game-shell" aria-label="Juego Starlight: No Return">
+      <canvas id="gameCanvas" aria-label="Área de juego"></canvas>
 
+      <!-- Pantalla de bienvenida -->
       <section id="welcomeScreen" class="screen screen-welcome">
         <div class="brand-row">
           <div class="mini-rocket" aria-hidden="true"></div>
-          <span>Bienvenido</span>
+          <span>Bienvenido, piloto</span>
         </div>
         <h1>Starlight: No Return</h1>
         <h3>By: Arturo Juárez Monroy</h3>
         <p class="lead">
-          Pilota el cohete y espera el instante correcto.
+          Sobrevive el mayor tiempo posible. Esquiva, dispara y recoge mejoras. Cada fase es más letal.
         </p>
-        <div class="instruction-grid" aria-label="Instrucciones">
+
+        <div class="instruction-grid" aria-label="Instrucciones del juego">
           <article>
-            <strong>Mover</strong>
-            <span>Flechas, A/S/D/W o arrastra en pantalla.</span>
+            <strong>🎮 Movimiento</strong>
+            <span>Flechas / WASD o arrastra el dedo sobre la pantalla.</span>
           </article>
           <article>
-            <strong>Disparar</strong>
-            <span>Q: lanza disparos limitados para abrirte paso.</span>
+            <strong>🔫 Disparar</strong>
+            <span>Tecla <kbd>Q</kbd>. Munición limitada (18 balas). Recoge más.</span>
           </article>
           <article>
-            <strong>Esquive inteligente</strong>
-            <span>Espacio o doble toque: el cohete busca una salida rapida si estas en peligro.</span>
+            <strong>💨 Esquive inteligente</strong>
+            <span>Espacio / doble toque. El cohete se desplaza rápidamente evitando obstáculos.</span>
           </article>
           <article>
-            <strong>Pulso Prisma</strong>
-            <span>E o boton inferior: desintegra lo cercano y empuja piezas magneticas. Es limitado.</span>
+            <strong>✨ Pulso Prisma</strong>
+            <span>Tecla <kbd>E</kbd>. Gasta 1 carga de pulso (máx. 5). Destruye enemigos cercanos y empuja los magnéticos.</span>
           </article>
           <article>
-            <strong>Objetivo</strong>
-            <span>Sobrevive, recoge cristales y encadena esquivas perfectas.</span>
+            <strong>❤️ Corazón</strong>
+            <span>Recupera 1 vida (máx. 6). Si estás lleno, da 80 puntos.</span>
+          </article>
+          <article>
+            <strong>🌈 Cubo arcoíris</strong>
+            <span>Otorga invisibilidad durante 4 segundos. Eres invulnerable y semitransparente.</span>
+          </article>
+          <article>
+            <strong>🚀 Cohete verde (aliado)</strong>
+            <span>Invoca un mini-cohete que te sigue y dispara a enemigos durante 6 segundos.</span>
+          </article>
+          <article>
+            <strong>🎯 Munición</strong>
+            <span>Recarga 3 balas (máx. 18). Si estás lleno, suma 60 puntos.</span>
+          </article>
+          <article>
+            <strong>💎 Cristal</strong>
+            <span>Recarga 1 pulso (si falta). Si ya tienes el máximo, suma 120 puntos.</span>
+          </article>
+          <article>
+            <strong>👹 Pacman caníbal</strong>
+            <span>Enemigo rojo que te persigue. Desaparece tras 4.5 segundos. ¡Aléjate o destrúyelo!</span>
+          </article>
+          <article>
+            <strong>🌀 Obstáculos</strong>
+            <span>Cubos, piedras, anillos y fragmentos. Algunos tienen conexiones magnéticas.</span>
+          </article>
+          <article>
+            <strong>🏆 Puntuación</strong>
+            <span>Gana puntos por esquivar, destruir enemigos y recoger objetos. Las cadenas aumentan la bonificación.</span>
           </article>
         </div>
+
         <div class="welcome-actions">
           <button id="startButton" class="primary-button">Iniciar viaje</button>
           <button id="muteButtonIntro" class="ghost-button" aria-pressed="false">Sonido</button>
         </div>
       </section>
 
+      <!-- Pantalla de fin del juego -->
       <section id="gameOverScreen" class="screen hidden">
         <div class="brand-row">
           <div class="mini-rocket" aria-hidden="true"></div>
           <span>Fin del viaje</span>
         </div>
-        <h2>El cohete perdio estabilidad</h2>
+        <h2>El cohete perdió estabilidad</h2>
         <p id="finalStats" class="lead"></p>
         <div class="welcome-actions">
           <button id="restartButton" class="primary-button">Reintentar</button>
@@ -61,6 +93,7 @@
         </div>
       </section>
 
+      <!-- HUD principal (se añaden más paneles dinámicamente) -->
       <div id="hud" class="hud hidden" aria-live="polite">
         <div class="hud-panel">
           <span>Puntos</span>
@@ -76,12 +109,13 @@
         </div>
         <div class="hud-panel ammo-panel">
           <span>Balas</span>
-          <strong id="ammoValue">8</strong>
+          <strong id="ammoValue">18</strong>
         </div>
         <div class="hud-panel health-panel">
           <span>Vidas</span>
-          <strong id="healthValue">3</strong>
+          <strong id="healthValue">6</strong>
         </div>
+        <!-- Los paneles de invisibilidad y aliado se crearán dinámicamente -->
       </div>
 
       <div id="phaseToast" class="phase-toast hidden"></div>
