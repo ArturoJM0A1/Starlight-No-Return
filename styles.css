@@ -66,7 +66,7 @@ button {
   background: linear-gradient(180deg, rgba(3, 6, 16, 0.24), rgba(3, 6, 16, 0.52)),
               radial-gradient(circle at 50% 46%, rgba(78, 231, 213, 0.18), transparent 46%);
   overflow-y: auto;
-  scrollbar-width: thin; /* Firefox: scroll delgado pero visible */
+  scrollbar-width: thin;
 }
 
 .screen::-webkit-scrollbar {
@@ -104,7 +104,7 @@ button {
 }
 
 .screen-instructions {
-  justify-content: flex-start; /* Para que el scroll sea natural */
+  justify-content: flex-start;
   padding-top: 30px;
   padding-bottom: 40px;
 }
@@ -220,6 +220,35 @@ kbd {
   justify-content: center;
   gap: 12px;
   margin-top: 28px;
+  margin-bottom: 20px;
+}
+
+/* Footer de contacto */
+.contact-footer {
+  margin-top: 24px;
+  padding: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+  width: 100%;
+}
+.contact-footer a {
+  color: var(--gold);
+  text-decoration: none;
+  transition: all 0.2s;
+  font-weight: 500;
+  background: rgba(0,0,0,0.3);
+  padding: 6px 14px;
+  border-radius: 40px;
+  backdrop-filter: blur(4px);
+}
+.contact-footer a:hover {
+  color: var(--aqua);
+  transform: translateY(-2px);
+  background: rgba(0,0,0,0.5);
 }
 
 .primary-button,
@@ -483,10 +512,19 @@ kbd {
   }
   .welcome-actions {
     margin-top: 16px;
+    margin-bottom: 12px;
   }
   .primary-button, .ghost-button {
     width: min(100%, 240px);
     padding: 10px 16px;
+  }
+  .contact-footer {
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .contact-footer a {
+    padding: 4px 10px;
+    font-size: 0.75rem;
   }
   .hud {
     top: max(8px, env(safe-area-inset-top));

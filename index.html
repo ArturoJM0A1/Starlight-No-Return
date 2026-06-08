@@ -19,9 +19,15 @@
         <h1>Starlight: No Return</h1>
         <h3>By: Arturo Juárez Monroy</h3>
         <div class="welcome-actions">
-          <button id="nextButton" class="primary-button">Siguiente →</button>
+          <button id="nextButton" class="primary-button">Siguiente</button>
           <button id="muteButtonIntro" class="ghost-button" aria-pressed="false">Sonido</button>
         </div>
+        <footer class="contact-footer">
+          <a href="https://github.com/ArturoJM0A1" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://arturojuarezmonroy.vercel.app/" target="_blank" rel="noopener noreferrer">Web</a>
+          <a href="https://x.com/juarez_mon84035" target="_blank" rel="noopener noreferrer">Twitter</a>
+          <a href="https://api.whatsapp.com/send/?phone=5217736802105&text&type=phone_number&app_absent=0" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+        </footer>
       </section>
 
       <!-- Pantalla de instrucciones (segunda página con scroll) -->
@@ -90,6 +96,12 @@
           <button id="backButton" class="ghost-button">← Volver</button>
           <button id="startButton" class="primary-button">Iniciar viaje</button>
         </div>
+        <footer class="contact-footer">
+          <a href="https://github.com/ArturoJM0A1" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://arturojuarezmonroy.vercel.app/" target="_blank" rel="noopener noreferrer">Web</a>
+          <a href="https://x.com/juarez_mon84035" target="_blank" rel="noopener noreferrer">Twitter</a>
+          <a href="https://api.whatsapp.com/send/?phone=5217736802105&text&type=phone_number&app_absent=0" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+        </footer>
       </section>
 
       <!-- Pantalla de fin del juego -->
@@ -104,6 +116,12 @@
           <button id="restartButton" class="primary-button">Reintentar</button>
           <button id="homeButton" class="ghost-button">Instrucciones</button>
         </div>
+        <footer class="contact-footer">
+          <a href="https://github.com/ArturoJM0A1" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://arturojuarezmonroy.vercel.app/" target="_blank" rel="noopener noreferrer">Web</a>
+          <a href="https://x.com/juarez_mon84035" target="_blank" rel="noopener noreferrer">Twitter</a>
+          <a href="https://api.whatsapp.com/send/?phone=5217736802105&text&type=phone_number&app_absent=0" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+        </footer>
       </section>
 
       <!-- HUD principal -->
@@ -156,32 +174,26 @@
         const homeBtn = document.getElementById('homeButton');
         const restartBtn = document.getElementById('restartButton');
 
-        // Mostrar solo la pantalla de bienvenida (página 1)
         function showWelcome() {
           if (welcomeScreen) welcomeScreen.classList.remove('hidden');
           if (instructionsPage) instructionsPage.classList.add('hidden');
           if (gameOverScreen) gameOverScreen.classList.add('hidden');
         }
 
-        // Mostrar la pantalla de instrucciones (página 2)
         function showInstructions() {
           if (welcomeScreen) welcomeScreen.classList.add('hidden');
           if (instructionsPage) instructionsPage.classList.remove('hidden');
           if (gameOverScreen) gameOverScreen.classList.add('hidden');
         }
 
-        // Navegación entre páginas
         if (nextBtn) nextBtn.addEventListener('click', showInstructions);
         if (backBtn) backBtn.addEventListener('click', showWelcome);
 
-        // Iniciar juego desde la página de instrucciones
         if (startBtn) {
           startBtn.addEventListener('click', function(e) {
-            // Ocultar ambas pantallas de presentación
             if (welcomeScreen) welcomeScreen.classList.add('hidden');
             if (instructionsPage) instructionsPage.classList.add('hidden');
             if (gameOverScreen) gameOverScreen.classList.add('hidden');
-            // Llamar a la función global startGame (definida en game.js)
             if (typeof window.startGame === 'function') {
               window.startGame();
             } else if (typeof startGame === 'function') {
@@ -190,25 +202,18 @@
           });
         }
 
-        // Botón "Instrucciones" en la pantalla de Game Over: debe mostrar la página de instrucciones
         if (homeBtn) {
           homeBtn.addEventListener('click', function() {
-            // Primero, llamar a returnHome (si existe) para resetear el estado del juego
             if (typeof window.returnHome === 'function') {
               window.returnHome();
             } else if (typeof returnHome === 'function') {
               returnHome();
             }
-            // Luego mostrar las instrucciones (segunda página)
-            showInstructions();
+            showInstructions(); // Muestra instrucciones, no bienvenida
           });
         }
 
-        // Botón "Reintentar" en Game Over ya tiene su propio evento en game.js (restartButton)
-        // Pero nos aseguramos de que oculte las pantallas correctamente
         if (restartBtn) {
-          // No sobreescribimos, solo añadimos un respaldo por si acaso
-          const originalRestart = restartBtn.onclick;
           restartBtn.addEventListener('click', function() {
             if (welcomeScreen) welcomeScreen.classList.add('hidden');
             if (instructionsPage) instructionsPage.classList.add('hidden');
@@ -216,7 +221,6 @@
           });
         }
 
-        // Inicialmente mostrar bienvenida
         showWelcome();
       })();
     </script>
