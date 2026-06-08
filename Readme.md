@@ -1,20 +1,8 @@
-\# Starlight No Return
+\# Starlight: No Return
 
 
 
-Un frenético juego arcade espacial donde pilotas un cohete metamórfico a través de anomalías cósmicas, esquivando obstáculos vivos y utilizando pulsos de energía para sobrevivir.
-
-
-
-\## 🚀 Descripción
-
-
-
-\*\*Orbit of No Return\*\* es un juego desarrollado con \*\*JavaScript puro\*\* y \*\*HTML5 Canvas\*\*, diseñado para ofrecer una experiencia rápida, intensa y visualmente llamativa tanto en dispositivos de escritorio como móviles.
-
-
-
-Atraviesa distintas fases del espacio profundo mientras sobrevives a tormentas magnéticas, recoges cristales energéticos y ejecutas maniobras precisas para alcanzar la mayor puntuación posible.
+Un frenético juego arcade espacial donde pilotas un cohete metamórfico a través de anomalías cósmicas, esquivando obstáculos vivientes y utilizando pulsos de energía para sobrevivir.
 
 
 
@@ -22,37 +10,65 @@ Atraviesa distintas fases del espacio profundo mientras sobrevives a tormentas m
 
 
 
-\## ✨ Características
+\## 🚀 Descripción
 
 
 
-\* 🌌 Fondo espacial dinámico con estrellas y nebulosas animadas.
+\*\*Starlight: No Return\*\* es un juego desarrollado con \*\*JavaScript puro\*\* y \*\*HTML5 Canvas\*\*, diseñado para ofrecer una experiencia rápida, intensa y visualmente llamativa tanto en dispositivos de escritorio como móviles.
 
-\* 🚀 Cohete metamórfico con efectos visuales avanzados.
 
-\* ⚡ Sistema de impulso ("Dash") para esquivar peligros.
 
-\* 💥 Pulso energético capaz de destruir o repeler obstáculos.
+Atraviesa distintas fases del espacio profundo mientras sobrevives a tormentas magnéticas, recoges cristales energéticos, invocas aliados y ejecutas maniobras precisas para alcanzar la mayor puntuación posible.
 
-\* 🔗 Obstáculos conectados mediante enlaces magnéticos.
 
-\* 💎 Cristales de energía coleccionables.
 
-\* 🎯 Sistema de puntuación, combos y esquivas perfectas.
+\---
 
-\* 🔊 Efectos de sonido generados mediante Web Audio API.
 
-\* 📳 Soporte para vibración en dispositivos compatibles.
 
-\* 📱 Controles táctiles para móviles.
+\## ✨ Características principales
 
-\* ⌨️ Controles completos para teclado.
 
-\* ⏸️ Sistema de pausa.
 
-\* 🔇 Opción para silenciar el audio.
+\- 🌌 Fondo espacial dinámico con estrellas y nebulosas animadas.
 
-\* 🏆 Guardado automático de la mejor puntuación mediante LocalStorage.
+\- 🚀 Cohete metamórfico con efectos visuales avanzados.
+
+\- 💨 Sistema de impulso ("Dash") para esquivar peligros.
+
+\- 💥 Pulso energético capaz de destruir o repeler obstáculos.
+
+\- 🔗 Obstáculos conectados mediante enlaces magnéticos.
+
+\- 👹 \*\*Pacman caníbal\*\*: enemigo rojo perseguidor que desaparece tras 4.5 segundos.
+
+\- 🚀 \*\*Cohete verde aliado\*\*: te sigue y dispara automáticamente a enemigos durante 6 segundos.
+
+\- 🌈 \*\*Cubo arcoíris\*\*: otorga invisibilidad e invulnerabilidad por 4 segundos.
+
+\- ❤️ \*\*Corazones\*\*: recuperan vidas (máx. 6).
+
+\- 🎯 \*\*Munición\*\*: recarga 3 balas (máx. 18).
+
+\- 💎 \*\*Cristales\*\*: recuperan carga de pulso (máx. 5) o dan puntos.
+
+\- 🎯 Sistema de puntuación, combos y esquivas perfectas.
+
+\- 🔊 Efectos de sonido generados mediante Web Audio API.
+
+\- 📳 Soporte para vibración en dispositivos compatibles.
+
+\- 📱 Controles táctiles para móviles.
+
+\- ⌨️ Controles completos para teclado.
+
+\- ⏸️ Sistema de pausa.
+
+\- 🔇 Opción para silenciar el audio.
+
+\- 🏆 Guardado automático de la mejor puntuación mediante LocalStorage.
+
+\- 📖 Interfaz de dos páginas: bienvenida e instrucciones con scroll.
 
 
 
@@ -68,21 +84,23 @@ Atraviesa distintas fases del espacio profundo mientras sobrevives a tormentas m
 
 
 
-| Acción           | Tecla           |
+| Acción           | Tecla               |
 
-| ---------------- | --------------- |
+| ---------------- | ------------------- |
 
-| Mover            | WASD o Flechas  |
+| Mover            | `WASD` o `Flechas`  |
 
-| Dash             | Espacio / Shift |
+| Dash             | `Espacio` / `Shift` |
 
-| Pulso energético | E / X           |
+| Pulso energético | `E` / `X`           |
 
-| Pausar           | P / Esc         |
+| Disparar         | `Q`                 |
 
-| Silenciar        | M               |
+| Pausar           | `P` / `Esc`         |
 
-| Iniciar          | Enter           |
+| Silenciar        | `M`                 |
+
+| Iniciar          | `Enter`             |
 
 
 
@@ -90,13 +108,13 @@ Atraviesa distintas fases del espacio profundo mientras sobrevives a tormentas m
 
 
 
-\* Mantén presionada la pantalla para mover la nave.
+\- Mantén presionada la pantalla para mover la nave.
 
-\* Doble toque para ejecutar un Dash.
+\- Doble toque para ejecutar un Dash.
 
-\* Botón \*\*Dash\*\* para esquiva rápida.
+\- Botón \*\*Dash\*\* para esquiva rápida.
 
-\* Botón \*\*Pulso\*\* para liberar energía.
+\- Botón \*\*Pulso\*\* para liberar energía.
 
 
 
@@ -110,45 +128,37 @@ Atraviesa distintas fases del espacio profundo mientras sobrevives a tormentas m
 
 \### Calma
 
+\- Menor cantidad de enemigos.
 
+\- Ideal para aprender patrones.
 
-\* Menor cantidad de enemigos.
-
-\* Ideal para aprender patrones.
-
-\* Mayor aparición de cristales.
+\- Mayor aparición de cristales.
 
 
 
 \### Ascenso
 
+\- Incremento progresivo de dificultad.
 
-
-\* Incremento progresivo de dificultad.
-
-\* Comienzan a aparecer conexiones magnéticas.
+\- Comienzan a aparecer conexiones magnéticas.
 
 
 
 \### Tormenta
 
+\- Máxima intensidad.
 
+\- Obstáculos enlazados y movimientos impredecibles.
 
-\* Máxima intensidad.
-
-\* Obstáculos enlazados y movimientos impredecibles.
-
-\* Uso estratégico del pulso recomendado.
+\- Uso estratégico del pulso recomendado.
 
 
 
 \### Respiro
 
+\- Reducción temporal de amenaza.
 
-
-\* Reducción temporal de amenaza.
-
-\* Excelente oportunidad para recuperar energía.
+\- Excelente oportunidad para recuperar energía.
 
 
 
@@ -162,15 +172,11 @@ Atraviesa distintas fases del espacio profundo mientras sobrevives a tormentas m
 
 \### Cubos Metamórficos
 
-
-
 Estructuras cambiantes que alteran constantemente su forma.
 
 
 
 \### Piedras de Equilibrio
-
-
 
 Fragmentos espaciales con trayectorias irregulares.
 
@@ -178,17 +184,19 @@ Fragmentos espaciales con trayectorias irregulares.
 
 \### Anillos Infinitos
 
-
-
 Obstáculos circulares con patrones visuales complejos.
 
 
 
 \### Esquirlas
 
+Fragmentos rápidos y peligrosos.
 
 
-Fragmentos rápidos y peligrosos capaces de sorprender al jugador.
+
+\### 👹 Pacman Caníbal (nuevo)
+
+Enemigo rojo que persigue al jugador. Desaparece después de 4.5 segundos. Puede ser destruido con disparos o el pulso.
 
 
 
@@ -196,49 +204,51 @@ Fragmentos rápidos y peligrosos capaces de sorprender al jugador.
 
 
 
-\## ⚡ Mecánicas principales
+\## ⚡ Mecánicas especiales
 
 
 
 \### Dash
 
-
-
 Permite desplazarse instantáneamente en una dirección.
 
+\- Invulnerabilidad temporal.
 
+\- Ideal para esquivas precisas.
 
-\* Invulnerabilidad temporal.
-
-\* Ideal para realizar esquivas precisas.
-
-\* Genera bonificaciones por "Near Miss".
-
-
-
-\---
+\- Genera bonificaciones por "Near Miss".
 
 
 
 \### Pulso Energético
 
+Consume una carga de energía (máx. 5) para liberar una onda expansiva.
+
+\- Destruye obstáculos cercanos.
+
+\- Desintegra conexiones magnéticas.
+
+\- Empuja enemigos fuera de la trayectoria.
+
+\- Genera grandes bonificaciones de puntuación.
 
 
-Consume una carga de energía para liberar una onda expansiva.
+
+\### Invisibilidad (Cubo Arcoíris)
+
+\- Vuelve al jugador semitransparente e invulnerable durante 4 segundos.
+
+\- Aparece un contador en el HUD.
 
 
 
-Puede:
+\### Aliado (Cohete Verde)
 
+\- Invoca un pequeño cohete que sigue al jugador.
 
+\- Dispara automáticamente a los enemigos cercanos cada 0.6 segundos.
 
-\* Destruir obstáculos cercanos.
-
-\* Desintegrar conexiones magnéticas.
-
-\* Empujar enemigos fuera de la trayectoria.
-
-\* Generar grandes bonificaciones de puntuación.
+\- Dura 6 segundos. Si ya hay uno activo, se prolonga.
 
 
 
@@ -246,15 +256,23 @@ Puede:
 
 
 
-\### Sistema de Energía
+\## 💎 Recogibles
 
 
 
-El jugador dispone de un número limitado de cargas.
+| Objeto          | Efecto                                                                 |
 
+| --------------- | ---------------------------------------------------------------------- |
 
+| ❤️ Corazón      | Recupera 1 vida (máx. 6). Si estás lleno, da 80 puntos.               |
 
-Las cargas pueden recuperarse recogiendo cristales espaciales.
+| 🎯 Munición     | Recarga 3 balas (máx. 18). Si estás lleno, da 60 puntos.               |
+
+| 🌈 Cubo arcoíris | Invisibilidad e invulnerabilidad por 4 segundos.                       |
+
+| 🚀 Cohete verde | Invoca aliado durante 6 segundos.                                      |
+
+| 💎 Cristal      | Recarga 1 pulso (máx. 5). Si ya tienes el máximo, da 120 puntos + 45. |
 
 
 
@@ -268,25 +286,21 @@ Las cargas pueden recuperarse recogiendo cristales espaciales.
 
 La puntuación aumenta mediante:
 
+\- Distancia recorrida.
 
+\- Supervivencia.
 
-\* Distancia recorrida.
+\- Recolección de cristales y otros pickups.
 
-\* Supervivencia.
+\- Destrucción de obstáculos.
 
-\* Recolección de cristales.
+\- Esquivas perfectas (Near Miss).
 
-\* Destrucción de obstáculos.
-
-\* Esquivas perfectas.
-
-\* Cadenas de combos.
+\- Cadenas de combos.
 
 
 
 La mejor puntuación queda almacenada automáticamente en el navegador.
-
-
 
 
 
@@ -298,23 +312,41 @@ La mejor puntuación queda almacenada automáticamente en el navegador.
 
 
 
-Sobrevive el mayor tiempo posible.
+\- Sobrevive el mayor tiempo posible.
+
+\- Domina el Dash y el Pulso.
+
+\- Gestiona sabiamente tu energía y munición.
+
+\- Aprende los patrones del universo.
+
+\- Descubre cuánto tiempo puedes mantener tu órbita… antes del punto de no retorno.
 
 
 
-Domina el Dash.
+\---
 
 
 
-Gestiona sabiamente tu energía.
+\## 🛠️ Tecnologías utilizadas
 
 
 
-Aprende los patrones del universo.
+\- \*\*HTML5\*\* (Canvas, estructura semántica)
+
+\- \*\*CSS3\*\* (Grid, Flexbox, efectos glassmorphism, diseño responsivo)
+
+\- \*\*JavaScript ES6+\*\* (toda la lógica del juego, físicas, IA, partículas, audio)
+
+\- \*\*Web Audio API\*\* (generación de sonidos en tiempo real)
+
+\- \*\*LocalStorage\*\* (guardado de mejor puntuación)
+
+\- \*\*API de vibración\*\* (feedback háptico en móviles)
 
 
 
-Y descubre cuánto tiempo puedes mantener tu órbita... antes del punto de no retorno.
+No utiliza librerías externas ni frameworks. Es código nativo y autocontenido.
 
 
 
@@ -334,7 +366,5 @@ Este proyecto puede utilizarse con fines educativos y personales. Consulta la li
 
 
 
-\### "Every orbit eventually closes... except the one from which there is no return."
-
-
+> \*"Every orbit eventually closes... except the one from which there is no return."\*
 
