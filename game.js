@@ -110,12 +110,17 @@
     floating: [],
     stars: [],
     ally: null,
+    // Nuevos estados para power-ups
+    whirlpoolTimer: 0,
+    whirlpoolRemaining: 0,
+    whirlpoolAbsorbCooldown: 0,
+    frozenTimer: 0,
   };
 
   const player = {
     x: 150,
     y: 240,
-    r: 16,                // Más pequeño
+    r: 16,
     vx: 0,
     vy: 0,
     energy: 5,
@@ -211,6 +216,10 @@
       ripples: [],
       floating: [],
       ally: null,
+      whirlpoolTimer: 0,
+      whirlpoolRemaining: 0,
+      whirlpoolAbsorbCooldown: 0,
+      frozenTimer: 0,
     });
     Object.assign(player, {
       x: clamp(width * 0.22, 90, 190),
@@ -377,6 +386,16 @@
         master.gain.exponentialRampToValueAtTime(0.09, now + 0.012);
         makeOsc(125, "triangle", 0.08, 0.14);
       },
+      whirlpool: () => {
+        master.gain.exponentialRampToValueAtTime(0.25, now + 0.012);
+        makeOsc(55, "sine", 0.2, 0.5);
+        makeOsc(110, "triangle", 0.15, 0.4);
+      },
+      ice: () => {
+        master.gain.exponentialRampToValueAtTime(0.22, now + 0.012);
+        makeOsc(660, "sine", 0.12, 0.28);
+        makeOsc(1320, "triangle", 0.1, 0.2);
+      },
     };
 
     (configs[type] || configs.click)();
@@ -415,6 +434,25 @@
         allyIndicator.classList.remove("hidden");
       } else {
         allyIndicator.classList.add("hidden");
+      }
+    }
+    // Nuevos indicadores
+    const whirlpoolIndicator = document.getElementById("whirlpoolIndicator");
+    if (whirlpoolIndicator) {
+      if (state.whirlpoolTimer > 0) {
+        whirlpoolIndicator.textContent = `🌀 ${Math.ceil(state.whirlpoolTimer)}s (${state.whirlpoolRemaining})`;
+        whirlpoolIndicator.classList.remove("hidden");
+      } else {
+        whirlpoolIndicator.classList.add("hidden");
+      }
+    }
+    const frozenIndicator = document.getElementById("frozenIndicator");
+    if (frozenIndicator) {
+      if (state.frozenTimer > 0) {
+        frozenIndicator.textContent = `❄️ ${Math.ceil(state.frozenTimer)}s`;
+        frozenIndicator.classList.remove("hidden");
+      } else {
+        frozenIndicator.classList.add("hidden");
       }
     }
   }
@@ -603,14 +641,16 @@
     if (Math.random() > phase.crystals) return;
     const y = clamp(rand(height * 0.18, height * 0.84), 92, height - 78);
     
-    // Nuevas probabilidades: más corazones, arcoíris y cohetes verdes
+    // Nuevas probabilidades: añadimos whirlpool (10%) e ice (10%)
     const r = Math.random();
     let type = "crystal";
-    if (r < 0.20) type = "heart";        // 20% corazones
-    else if (r < 0.28) type = "ammo";    // 8% munición
-    else if (r < 0.58) type = "rainbow"; // 30% arcoíris
-    else if (r < 0.74) type = "greenRocket"; // 16% cohete verde
-    // resto 26% cristal
+    if (r < 0.16) type = "heart";        // 16% corazones
+    else if (r < 0.22) type = "ammo";    // 6% munición
+    else if (r < 0.44) type = "rainbow"; // 22% arcoíris
+    else if (r < 0.56) type = "greenRocket"; // 12% cohete verde
+    else if (r < 0.66) type = "whirlpool";   // 10% REMOLINO
+    else if (r < 0.76) type = "ice";         // 10% HIELO
+    // resto 24% cristal
     
     const pickup = {
       x: width + rand(50, 140),
@@ -851,6 +891,49 @@
     return "#ff6f91";
   }
 
+  // Nueva función para el efecto remolino (absorbe obstáculos)
+  function updateWhirlpool(dt) {
+    if (state.whirlpoolTimer <= 0) return;
+    state.whirlpoolTimer -= dt;
+    if (state.whirlpoolTimer <= 0) {
+      state.whirlpoolRemaining = 0;
+      addFloating("🌀 Remolino terminado", player.x, player.y - 40, "#4ee7d5");
+      return;
+    }
+    // Cooldown entre absorciones
+    if (state.whirlpoolAbsorbCooldown > 0) {
+      state.whirlpoolAbsorbCooldown -= dt;
+    }
+    if (state.whirlpoolAbsorbCooldown <= 0 && state.whirlpoolRemaining > 0) {
+      // Buscar el obstáculo más cercano dentro del radio
+      let closest = null;
+      let closestDist = 220; // radio de absorción
+      for (const o of state.obstacles) {
+        const d = dist(player, o);
+        if (d < closestDist && !o.dead) {
+          closestDist = d;
+          closest = o;
+        }
+      }
+      if (closest) {
+        closest.dead = true;
+        state.whirlpoolRemaining--;
+        state.whirlpoolAbsorbCooldown = 0.25; // esperar 0.25s antes de la siguiente absorción
+        addParticles(closest.x, closest.y, "#ffffff", 12, 220, 6);
+        addFloating("🌀 Absorbido", closest.x, closest.y - 20, "#4ee7d5");
+        sfx("whirlpool");
+        // Pequeña bonificación
+        state.score += 50;
+        vibrate(10);
+      } else {
+        // No hay obstáculos cercanos, reducimos remaining a cero para no buscar en vano
+        state.whirlpoolRemaining = 0;
+      }
+    }
+    // Efecto visual de remolino alrededor del jugador
+    addRipple(player.x, player.y, "#4ee7d5", 80, 3);
+  }
+
   function updateAlly(dt) {
     if (!state.ally) return;
     state.ally.timer -= dt;
@@ -919,6 +1002,14 @@
       }
     }
 
+    // Actualizar estado de congelación
+    if (state.frozenTimer > 0) {
+      state.frozenTimer -= dt;
+      if (state.frozenTimer <= 0) {
+        addFloating("❄️ Descongelación", player.x, player.y - 40, "#8cffb2");
+      }
+    }
+
     updatePhase(dt);
     updatePlayer(dt);
     updateSpawning(dt);
@@ -927,6 +1018,7 @@
     updateProjectiles(dt);
     updateEffects(dt);
     updateAlly(dt);
+    updateWhirlpool(dt); // Nuevo efecto
     updateHud();
   }
 
@@ -1020,8 +1112,15 @@
       } else {
         o.phase += dt * o.drift;
         o.angle += dt * o.spin;
-        o.x += o.vx * dt;
-        o.y = o.baseY + Math.sin(o.phase + o.seed) * o.amp;
+        // Si está congelado, no se mueve
+        if (state.frozenTimer <= 0) {
+          o.x += o.vx * dt;
+          o.y = o.baseY + Math.sin(o.phase + o.seed) * o.amp;
+        } else {
+          // Obstáculo congelado: apenas se mueve (opcional: pequeña vibración)
+          o.x += o.vx * dt * 0.05;
+          // No actualiza o.y para mantener posición congelada
+        }
         o.pulseGlow = Math.max(0, o.pulseGlow - dt * 1.7);
         o.clickAt -= dt;
         if (o.clickAt <= 0 && o.x > -80 && o.x < width + 80 && state.mode === "playing") {
@@ -1115,6 +1214,24 @@
           addFloating("🚀 ¡Aliado verde! 🚀", p.x, p.y - 28, "#8cffb2");
           addParticles(p.x, p.y, "#8cffb2", 20, 200, 5);
           sfx("collect");
+        } else if (p.type === "whirlpool") {
+          // Activar remolino: 3 segundos, puede absorber hasta 6 obstáculos
+          state.whirlpoolTimer = 3.0;
+          state.whirlpoolRemaining = 6;
+          state.whirlpoolAbsorbCooldown = 0;
+          addFloating("🌀 ¡Remolino activado! 🌀", p.x, p.y - 28, "#4ee7d5");
+          addParticles(p.x, p.y, "#4ee7d5", 24, 220, 6);
+          sfx("whirlpool");
+          vibrate([20, 40]);
+        } else if (p.type === "ice") {
+          // Congelar todos los obstáculos por 3 segundos
+          state.frozenTimer = 3.0;
+          addFloating("❄️ ¡Congelación masiva! ❄️", p.x, p.y - 28, "#8cffb2");
+          addParticles(p.x, p.y, "#88ccff", 24, 200, 5);
+          sfx("ice");
+          vibrate(30);
+          // Efecto visual de onda de hielo
+          addRipple(p.x, p.y, "#88ccff", 180, 4);
         } else {
           if (player.energy < player.maxEnergy) {
             player.energy += 1;
@@ -1125,7 +1242,7 @@
           }
           state.score += 45;
         }
-        addParticles(p.x, p.y, p.type === "heart" ? "#ff6f91" : (p.type === "ammo" ? "#ffd166" : (p.type === "rainbow" ? "#ff00ff" : (p.type === "greenRocket" ? "#8cffb2" : "#4ee7d5"))), 16, 180, 4);
+        addParticles(p.x, p.y, p.type === "heart" ? "#ff6f91" : (p.type === "ammo" ? "#ffd166" : (p.type === "rainbow" ? "#ff00ff" : (p.type === "greenRocket" ? "#8cffb2" : (p.type === "whirlpool" ? "#4ee7d5" : (p.type === "ice" ? "#88ccff" : "#4ee7d5"))))), 16, 180, 4);
         sfx("collect");
         vibrate(8);
         updateHud();
@@ -1346,10 +1463,21 @@
       ctx.shadowColor = "#4ee7d5";
       ctx.shadowBlur = 22 * o.pulseGlow;
     }
-    if (o.type === "cube") drawMetamorphicCube(o, reveal);
-    else if (o.type === "stone") drawBalanceStone(o, reveal);
-    else if (o.type === "ring") drawInfiniteRing(o, reveal);
-    else if (o.type === "shard") drawShard(o, reveal);
+    // Efecto de hielo si está congelado
+    const isFrozen = state.frozenTimer > 0;
+    if (isFrozen && o.type !== "cannibal") {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = "rgba(136, 204, 255, 0.4)";
+      ctx.beginPath();
+      ctx.arc(0, 0, o.r + 2, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+    if (o.type === "cube") drawMetamorphicCube(o, reveal, isFrozen);
+    else if (o.type === "stone") drawBalanceStone(o, reveal, isFrozen);
+    else if (o.type === "ring") drawInfiniteRing(o, reveal, isFrozen);
+    else if (o.type === "shard") drawShard(o, reveal, isFrozen);
     else if (o.type === "cannibal") drawCannibal(o, reveal);
     ctx.restore();
   }
@@ -1426,7 +1554,7 @@
     ctx.restore();
   }
 
-  function drawMetamorphicCube(o, reveal) {
+  function drawMetamorphicCube(o, reveal, frozen) {
     const morph = (Math.sin(o.phase * 2.1 + o.seed) + 1) / 2;
     const sides = 4 + Math.floor(morph * 4);
     const r = o.r * (0.86 + morph * 0.18);
@@ -1484,7 +1612,7 @@
     }
   }
 
-  function drawBalanceStone(o, reveal) {
+  function drawBalanceStone(o, reveal, frozen) {
     const r = o.r;
     ctx.save();
     ctx.rotate(Math.sin(o.phase * 1.7) * 0.35);
@@ -1532,7 +1660,7 @@
     ctx.restore();
   }
 
-  function drawInfiniteRing(o, reveal) {
+  function drawInfiniteRing(o, reveal, frozen) {
     const r = o.r + Math.sin(o.phase * 2.4) * 5;
     const thickness = 10 + Math.sin(o.phase * 1.8) * 2;
     const grad = ctx.createLinearGradient(-r, -r, r, r);
@@ -1576,7 +1704,7 @@
     }
   }
 
-  function drawShard(o, reveal) {
+  function drawShard(o, reveal, frozen) {
     const r = o.r;
     const grad = ctx.createLinearGradient(-r, -r, r, r);
     grad.addColorStop(0, "#ffffff");
@@ -1681,6 +1809,57 @@
       ctx.beginPath();
       ctx.rect(-r*0.2, r*0.3, r*0.4, r*0.3);
       ctx.fill();
+    } else if (p.type === "whirlpool") {
+      // Remolino: espiral azul/cián
+      ctx.shadowColor = "#4ee7d5";
+      ctx.fillStyle = "rgba(78, 231, 213, 0.3)";
+      ctx.beginPath();
+      ctx.arc(0, 0, r*0.9, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = "#4ee7d5";
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const angle = i * Math.PI * 2 / 3 + p.phase;
+        const xr = Math.cos(angle) * r * 0.6;
+        const yr = Math.sin(angle) * r * 0.6;
+        ctx.moveTo(0, 0);
+        ctx.lineTo(xr, yr);
+      }
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, r*0.4, 0, TAU);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, r*0.2, 0, TAU);
+      ctx.fillStyle = "#071022";
+      ctx.fill();
+    } else if (p.type === "ice") {
+      // Cristal de hielo
+      ctx.shadowColor = "#88ccff";
+      ctx.fillStyle = "#88ccff";
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r*0.6, -r*0.3);
+      ctx.lineTo(r*0.8, r*0.2);
+      ctx.lineTo(r*0.3, r*0.7);
+      ctx.lineTo(-r*0.3, r*0.7);
+      ctx.lineTo(-r*0.8, r*0.2);
+      ctx.lineTo(-r*0.6, -r*0.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.moveTo(0, -r*0.6);
+      ctx.lineTo(r*0.3, -r*0.2);
+      ctx.lineTo(0, r*0.2);
+      ctx.lineTo(-r*0.3, -r*0.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#aaffff";
+      ctx.beginPath();
+      ctx.arc(r*0.3, r*0.2, r*0.15, 0, TAU);
+      ctx.fill();
     } else {
       ctx.shadowColor = "#4ee7d5";
       const grad = ctx.createLinearGradient(-r, -r, r, r);
@@ -1708,7 +1887,7 @@
     ctx.save();
     ctx.translate(state.ally.x, state.ally.y);
     ctx.rotate(state.time * 4);
-    const r = 14;  // un poco más pequeño
+    const r = 14;
     ctx.fillStyle = "#6fbf4c";
     ctx.shadowBlur = 12;
     ctx.shadowColor = "#8cffb2";
@@ -2016,6 +2195,31 @@
       allyPanel.style.background = "rgba(140, 255, 178, 0.3)";
       allyPanel.style.borderColor = "#8cffb2";
       hudDiv.appendChild(allyPanel);
+    }
+  }
+  // Nuevos indicadores
+  if (!document.getElementById("whirlpoolIndicator")) {
+    const hudDiv = document.querySelector(".hud");
+    if (hudDiv) {
+      const wpPanel = document.createElement("div");
+      wpPanel.className = "hud-panel";
+      wpPanel.id = "whirlpoolIndicator";
+      wpPanel.innerHTML = '<span>🌀 REMOLINO</span><strong id="wpTime">0s</strong><span style="font-size:0.7rem;"> restantes</span>';
+      wpPanel.style.background = "rgba(78, 231, 213, 0.3)";
+      wpPanel.style.borderColor = "#4ee7d5";
+      hudDiv.appendChild(wpPanel);
+    }
+  }
+  if (!document.getElementById("frozenIndicator")) {
+    const hudDiv = document.querySelector(".hud");
+    if (hudDiv) {
+      const icePanel = document.createElement("div");
+      icePanel.className = "hud-panel";
+      icePanel.id = "frozenIndicator";
+      icePanel.innerHTML = '<span>❄️ HIELO</span><strong id="iceTime">0s</strong>';
+      icePanel.style.background = "rgba(136, 204, 255, 0.3)";
+      icePanel.style.borderColor = "#88ccff";
+      hudDiv.appendChild(icePanel);
     }
   }
 
