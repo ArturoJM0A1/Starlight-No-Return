@@ -2345,17 +2345,13 @@
   canvas.addEventListener(
     "pointermove",
     (event) => {
-      if (!input.pointer) return;
       event.preventDefault();
+      input.pointer = true;
       input.pointerX = event.clientX;
       input.pointerY = event.clientY;
     },
     { passive: false },
   );
-
-  window.addEventListener("pointerup", () => {
-    input.pointer = false;
-  });
 
   startButton.addEventListener("click", startGame);
   restartButton.addEventListener("click", startGame);
