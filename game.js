@@ -115,6 +115,7 @@
     whirlpoolRemaining: 0,
     whirlpoolAbsorbCooldown: 0,
     frozenTimer: 0,
+    lightningFX: [],
   };
 
   const player = {
@@ -125,8 +126,8 @@
     vy: 0,
     energy: 5,
     maxEnergy: 5,
-    ammo: 18,
-    maxAmmo: 18,
+    ammo: 30,
+    maxAmmo: 30,
     dashCooldown: 0,
     dashTimer: 0,
     pulseCooldown: 0,
@@ -137,6 +138,7 @@
     flame: 0,
     tilt: 0,
     lastDashVector: { x: 1, y: 0 },
+    lightningCharges: 4,
   };
 
   function rand(min, max) {
@@ -220,6 +222,7 @@
       whirlpoolRemaining: 0,
       whirlpoolAbsorbCooldown: 0,
       frozenTimer: 0,
+      lightningFX: [],
     });
     Object.assign(player, {
       x: clamp(width * 0.22, 90, 190),
@@ -227,7 +230,7 @@
       vx: 0,
       vy: 0,
       energy: 5,
-      ammo: 18,
+      ammo: 30,
       dashCooldown: 0,
       dashTimer: 0,
       pulseCooldown: 0,
@@ -238,6 +241,7 @@
       flame: 0,
       tilt: 0,
       lastDashVector: { x: 1, y: 0 },
+      lightningCharges: 4,
     });
     showPhaseToast(currentPhase().toast);
     updateHud();
@@ -396,6 +400,14 @@
         makeOsc(660, "sine", 0.12, 0.28);
         makeOsc(1320, "triangle", 0.1, 0.2);
       },
+      lightning: () => {
+        master.gain.exponentialRampToValueAtTime(0.28, now + 0.008);
+        const osc = makeOsc(1200, "sawtooth", 0.14, 0.32);
+        osc.frequency.exponentialRampToValueAtTime(3200, now + 0.08);
+        osc.frequency.exponentialRampToValueAtTime(400, now + 0.32);
+        makeOsc(2400, "square", 0.08, 0.12);
+        makeOsc(80, "sine", 0.18, 0.28);
+      },
     };
 
     (configs[type] || configs.click)();
@@ -453,6 +465,15 @@
         frozenIndicator.classList.remove("hidden");
       } else {
         frozenIndicator.classList.add("hidden");
+      }
+    }
+    const lightningIndicator = document.getElementById("lightningIndicator");
+    if (lightningIndicator) {
+      if (player.lightningCharges > 0) {
+        lightningIndicator.innerHTML = `<span>⚡ RAYO</span><strong>${player.lightningCharges}</strong>`;
+        lightningIndicator.classList.remove("hidden");
+      } else {
+        lightningIndicator.classList.add("hidden");
       }
     }
   }
@@ -522,6 +543,8 @@
       destructible: true,
       clickAt: rand(0.25, 0.7),
       pulseGlow: 0,
+      stunTimer: 0,
+      shockGlow: 0,
     };
 
     if (type === "cube") {
@@ -641,15 +664,15 @@
     if (Math.random() > phase.crystals) return;
     const y = clamp(rand(height * 0.18, height * 0.84), 92, height - 78);
     
-    // Nuevas probabilidades: añadimos whirlpool (10%) e ice (10%)
     const r = Math.random();
     let type = "crystal";
-    if (r < 0.16) type = "heart";        // 16% corazones
-    else if (r < 0.22) type = "ammo";    // 6% munición
-    else if (r < 0.44) type = "rainbow"; // 22% arcoíris
-    else if (r < 0.56) type = "greenRocket"; // 12% cohete verde
-    else if (r < 0.66) type = "whirlpool";   // 10% REMOLINO
-    else if (r < 0.76) type = "ice";         // 10% HIELO
+    if (r < 0.15) type = "heart";        // 15% corazones
+    else if (r < 0.20) type = "ammo";    // 5% munición
+    else if (r < 0.40) type = "rainbow"; // 20% arcoíris
+    else if (r < 0.50) type = "greenRocket"; // 10% cohete verde
+    else if (r < 0.58) type = "whirlpool";   // 8% REMOLINO
+    else if (r < 0.66) type = "ice";         // 8% HIELO
+    else if (r < 0.76) type = "lightning";   // 10% RAYO
     // resto 24% cristal
     
     const pickup = {
@@ -847,6 +870,59 @@
     updateHud();
   }
 
+  function triggerLightning() {
+    if (state.mode !== "playing" || state.paused) return;
+    if (player.lightningCharges <= 0) {
+      addFloating("Sin rayos", player.x, player.y - 42, "#b8f4ff");
+      sfx("empty");
+      return;
+    }
+
+    player.lightningCharges -= 1;
+    state.shake = Math.max(state.shake, 12);
+    state.flash = Math.max(state.flash, 0.25);
+    sfx("lightning");
+    vibrate([20, 10, 40]);
+
+    let hitCount = 0;
+    for (const o of state.obstacles) {
+      if (o.dead) continue;
+      if (o.x < -80 || o.x > width + 80) continue;
+
+      const topX = rand(Math.max(o.x - 40, 40), Math.min(o.x + 40, width - 40));
+      state.lightningFX.push({
+        x: o.x,
+        y: o.y,
+        timer: 0.25,
+        flashTimer: 0.12,
+        topX: topX,
+        topY: -10,
+      });
+
+      addParticles(o.x, o.y, "#b8f4ff", 16, 240, 5);
+      addRipple(o.x, o.y, "#b8f4ff", 50, 3);
+
+      if (o.r < 40 || o.type === "shard" || o.type === "cannibal") {
+        o.dead = true;
+        state.score += 120;
+        addFloating("⚡ +120", o.x, o.y - 20, "#b8f4ff");
+        addParticles(o.x, o.y, obstacleColor(o), 14, 200, 5);
+      } else {
+        o.stunTimer = 2.0;
+        o.shockGlow = 0.6;
+        state.score += 40;
+        addFloating("⚡ Aturdido +40", o.x, o.y - 20, "#b8f4ff");
+      }
+      hitCount++;
+    }
+
+    if (hitCount > 0) {
+      showComboToast(`⚡ Tormenta eléctrica x${hitCount}`);
+    }
+
+    updateHud();
+  }
+
   function findDangerObstacle(range) {
     let best = null;
     let bestDist = Infinity;
@@ -934,6 +1010,27 @@
     addRipple(player.x, player.y, "#4ee7d5", 80, 3);
   }
 
+  function updateLightningFX(dt) {
+    for (const fx of state.lightningFX) {
+      fx.timer -= dt;
+      fx.flashTimer = Math.max(0, fx.flashTimer - dt);
+    }
+    state.lightningFX = state.lightningFX.filter(fx => fx.timer > 0);
+
+    for (const o of state.obstacles) {
+      if (o.stunTimer > 0) {
+        o.stunTimer -= dt;
+        o.shockGlow = Math.max(0, o.shockGlow - dt * 2);
+        if (Math.random() < 0.3) {
+          addParticles(o.x + rand(-o.r, o.r), o.y + rand(-o.r, o.r), "#b8f4ff", 2, 80, 2);
+        }
+      }
+      if (o.shockGlow > 0 && o.stunTimer <= 0) {
+        o.shockGlow = Math.max(0, o.shockGlow - dt * 2);
+      }
+    }
+  }
+
   function updateAlly(dt) {
     if (!state.ally) return;
     state.ally.timer -= dt;
@@ -1019,6 +1116,7 @@
     updateEffects(dt);
     updateAlly(dt);
     updateWhirlpool(dt); // Nuevo efecto
+    updateLightningFX(dt);
     updateHud();
   }
 
@@ -1112,14 +1210,14 @@
       } else {
         o.phase += dt * o.drift;
         o.angle += dt * o.spin;
-        // Si está congelado, no se mueve
-        if (state.frozenTimer <= 0) {
+        // Si está aturdido, no se mueve
+        if (o.stunTimer > 0) {
+          // No se mueve
+        } else if (state.frozenTimer <= 0) {
           o.x += o.vx * dt;
           o.y = o.baseY + Math.sin(o.phase + o.seed) * o.amp;
         } else {
-          // Obstáculo congelado: apenas se mueve (opcional: pequeña vibración)
           o.x += o.vx * dt * 0.05;
-          // No actualiza o.y para mantener posición congelada
         }
         o.pulseGlow = Math.max(0, o.pulseGlow - dt * 1.7);
         o.clickAt -= dt;
@@ -1232,6 +1330,17 @@
           vibrate(30);
           // Efecto visual de onda de hielo
           addRipple(p.x, p.y, "#88ccff", 180, 4);
+        } else if (p.type === "lightning") {
+          if (player.lightningCharges < 4) {
+            player.lightningCharges = Math.min(4, player.lightningCharges + 1);
+            addFloating("⚡ ¡Rayo almacenado! ⚡", p.x, p.y - 28, "#b8f4ff");
+          } else {
+            state.score += 100;
+            addFloating("+100", p.x, p.y - 28, "#ffd166");
+          }
+          addParticles(p.x, p.y, "#b8f4ff", 20, 200, 5);
+          sfx("collect");
+          vibrate(12);
         } else {
           if (player.energy < player.maxEnergy) {
             player.energy += 1;
@@ -1242,7 +1351,7 @@
           }
           state.score += 45;
         }
-        addParticles(p.x, p.y, p.type === "heart" ? "#ff6f91" : (p.type === "ammo" ? "#ffd166" : (p.type === "rainbow" ? "#ff00ff" : (p.type === "greenRocket" ? "#8cffb2" : (p.type === "whirlpool" ? "#4ee7d5" : (p.type === "ice" ? "#88ccff" : "#4ee7d5"))))), 16, 180, 4);
+          addParticles(p.x, p.y, p.type === "heart" ? "#ff6f91" : (p.type === "ammo" ? "#ffd166" : (p.type === "rainbow" ? "#ff00ff" : (p.type === "greenRocket" ? "#8cffb2" : (p.type === "whirlpool" ? "#4ee7d5" : (p.type === "ice" ? "#88ccff" : (p.type === "lightning" ? "#b8f4ff" : "#4ee7d5")))))), 16, 180, 4);
         sfx("collect");
         vibrate(8);
         updateHud();
@@ -1312,6 +1421,7 @@
     drawProjectiles();
     for (const o of state.obstacles) drawObstacleShadow(o);
     for (const o of state.obstacles) drawObstacle(o);
+    drawLightningBolts();
     drawRipples();
     drawParticles();
     if (state.ally) drawAlly();
@@ -1472,6 +1582,26 @@
       ctx.beginPath();
       ctx.arc(0, 0, o.r + 2, 0, TAU);
       ctx.fill();
+      ctx.restore();
+    }
+    if (o.shockGlow > 0 && o.type !== "cannibal") {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const shockAlpha = Math.min(1, o.shockGlow * 2);
+      ctx.fillStyle = `rgba(184, 244, 255, ${shockAlpha * 0.3})`;
+      ctx.beginPath();
+      ctx.arc(0, 0, o.r + 4 + Math.sin(state.time * 20) * 3, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 255, 255, ${shockAlpha * 0.5})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = i * TAU / 6 + state.time * 8;
+        const sr = o.r + 6 + Math.sin(state.time * 15 + i) * 4;
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * sr, Math.sin(a) * sr);
+      }
+      ctx.stroke();
       ctx.restore();
     }
     if (o.type === "cube") drawMetamorphicCube(o, reveal, isFrozen);
@@ -1834,6 +1964,26 @@
       ctx.arc(0, 0, r*0.2, 0, TAU);
       ctx.fillStyle = "#071022";
       ctx.fill();
+    } else if (p.type === "lightning") {
+      ctx.shadowColor = "#b8f4ff";
+      ctx.fillStyle = "#ffe066";
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.85);
+      ctx.lineTo(r * 0.25, -r * 0.15);
+      ctx.lineTo(r * 0.08, -r * 0.15);
+      ctx.lineTo(r * 0.35, r * 0.5);
+      ctx.lineTo(-r * 0.1, r * 0.5);
+      ctx.lineTo(-r * 0.3, r * 0.85);
+      ctx.lineTo(-r * 0.05, r * 0.25);
+      ctx.lineTo(r * 0.1, r * 0.25);
+      ctx.lineTo(-r * 0.2, -r * 0.3);
+      ctx.lineTo(r * 0.15, -r * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(-r * 0.08, -r * 0.5, r * 0.15, 0, TAU);
+      ctx.fill();
     } else if (p.type === "ice") {
       // Cristal de hielo
       ctx.shadowColor = "#88ccff";
@@ -1923,6 +2073,57 @@
       ctx.fill();
       ctx.restore();
     }
+  }
+
+  function drawLightningBolts() {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const fx of state.lightningFX) {
+      const alpha = Math.max(0, fx.timer / 0.25);
+      const segments = 8;
+      const dx = fx.x - fx.topX;
+      const dy = fx.y - fx.topY;
+
+      ctx.strokeStyle = `rgba(184, 244, 255, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = "#b8f4ff";
+      ctx.beginPath();
+      ctx.moveTo(fx.topX, fx.topY);
+      for (let i = 1; i < segments; i++) {
+        const t = i / segments;
+        const bx = fx.topX + dx * t + (Math.random() - 0.5) * 28;
+        const by = fx.topY + dy * t;
+        ctx.lineTo(bx, by);
+      }
+      ctx.lineTo(fx.x, fx.y);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.shadowBlur = 30;
+      ctx.beginPath();
+      ctx.moveTo(fx.topX, fx.topY);
+      for (let i = 1; i < segments; i++) {
+        const t = i / segments;
+        const bx = fx.topX + dx * t + (Math.random() - 0.5) * 16;
+        const by = fx.topY + dy * t;
+        ctx.lineTo(bx, by);
+      }
+      ctx.lineTo(fx.x, fx.y);
+      ctx.stroke();
+
+      if (fx.flashTimer > 0) {
+        const flashAlpha = Math.min(1, fx.flashTimer * 8);
+        ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha * 0.7})`;
+        ctx.shadowBlur = 40;
+        ctx.shadowColor = "#b8f4ff";
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, 14 * flashAlpha, 0, TAU);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 
   function drawRipples() {
@@ -2117,6 +2318,9 @@
     if (event.code === "KeyQ") {
       triggerShoot();
     }
+    if (event.code === "KeyG") {
+      triggerLightning();
+    }
   });
 
   window.addEventListener("keyup", (event) => {
@@ -2220,6 +2424,18 @@
       icePanel.style.background = "rgba(136, 204, 255, 0.3)";
       icePanel.style.borderColor = "#88ccff";
       hudDiv.appendChild(icePanel);
+    }
+  }
+  if (!document.getElementById("lightningIndicator")) {
+    const hudDiv = document.querySelector(".hud");
+    if (hudDiv) {
+      const boltPanel = document.createElement("div");
+      boltPanel.className = "hud-panel";
+      boltPanel.id = "lightningIndicator";
+      boltPanel.innerHTML = '<span>⚡ RAYO</span><strong id="lightningCount">4</strong>';
+      boltPanel.style.background = "rgba(184, 244, 255, 0.3)";
+      boltPanel.style.borderColor = "#b8f4ff";
+      hudDiv.appendChild(boltPanel);
     }
   }
 
