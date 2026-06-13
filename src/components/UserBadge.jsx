@@ -6,7 +6,7 @@ const style = {
   left: 8,
   zIndex: 10,
   color: 'rgba(248, 251, 255, 0.6)',
-  fontSize: '0.7rem',
+  fontSize: '1.7rem',
   lineHeight: 1.4,
   pointerEvents: 'none',
   userSelect: 'none',

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { initGame } from './game/engine';
-import { saveBestScore } from './firebase';
+import { saveBestScore, getUserProfile, auth, onAuthStateChanged } from './firebase';
 import WelcomeScreen from './components/WelcomeScreen';
 import InstructionsScreen from './components/InstructionsScreen';
 import GameOverScreen from './components/GameOverScreen';
@@ -21,14 +21,26 @@ export default function App() {
   const canvasRef = useRef(null);
   const userRef = useRef(null);
 
+  function syncUser(u) {
+    userRef.current = u;
+    setUser(u);
+  }
+
   const handleModeChange = useCallback((newMode, data) => {
     setMode(newMode);
     if (newMode === 'gameover' && data) {
       setGameOverStats(data);
       const u = userRef.current;
-      if (u && data.score > (u.bestScore || 0)) {
-        saveBestScore(u.uid, data.score);
-        setUser((prev) => prev ? { ...prev, bestScore: data.score } : prev);
+      if (u) {
+        (async () => {
+          if (data.score > (u.bestScore || 0)) {
+            await saveBestScore(u.uid, data.score);
+          }
+          const profile = await getUserProfile(u.uid);
+          if (profile) {
+            syncUser({ ...u, bestScore: profile.bestScore || 0 });
+          }
+        })();
       }
     }
   }, []);
@@ -46,9 +58,26 @@ export default function App() {
     };
   }, [handleModeChange]);
 
+  useEffect(() => {
+    if (!auth) return;
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const profile = await getUserProfile(firebaseUser.uid);
+        if (profile) {
+          syncUser({
+            uid: firebaseUser.uid,
+            username: firebaseUser.displayName || profile.username,
+            email: profile.email || firebaseUser.email,
+            bestScore: profile.bestScore || 0,
+          });
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
+
   function handleAuth(u) {
-    userRef.current = u;
-    setUser(u);
+    syncUser(u);
   }
 
   const isPlaying = mode === 'playing';

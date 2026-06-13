@@ -6,6 +6,7 @@ import {
   updateProfile,
   signOut,
   sendPasswordResetEmail,
+  onAuthStateChanged,
 } from 'firebase/auth';
 import {
   getFirestore, doc, setDoc, getDoc, updateDoc,
@@ -108,4 +109,4 @@ export async function resetPassword(username, email) {
   await sendPasswordResetEmail(auth, email);
 }
 
-export { auth, db };
+export { auth, db, onAuthStateChanged };

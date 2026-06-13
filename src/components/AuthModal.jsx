@@ -192,7 +192,7 @@ export default function AuthModal({ onClose, onAuth }) {
               {errors.email && <div style={errorMsg}>{errors.email}</div>}
 
               {errors.firebase && <div style={{ ...errorMsg, marginTop: 12, textAlign: 'center' }}>{errors.firebase}</div>}
-              {sent && <div style={successMsg}>Correo de restablecimiento enviado. Revisa tu bandeja de entrada.</div>}
+              {sent && <div style={successMsg}>Correo de restablecimiento enviado. Revisa tu bandeja de entrada. NO OLVIDES CHECAR SPAM</div>}
 
               {!sent && (
                 <button type="submit" style={{ ...btnPrimary, opacity: loading ? 0.6 : 1 }} disabled={loading}>
