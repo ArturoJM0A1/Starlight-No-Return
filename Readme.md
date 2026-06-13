@@ -11,9 +11,7 @@
 
 ## 🚀 Sobre el juego
 
-Desarrollado íntegramente con **JavaScript puro**, **HTML5 Canvas** y **CSS3**, este proyecto busca recuperar la esencia de los clásicos arcade: controles precisos, dificultad progresiva y partidas rápidas capaces de generar esa sensación de *"solo una partida más"*.
-
-Sin motores gráficos ni librerías externas, cada mecánica, efecto visual y sistema del juego fue construido desde cero.
+Juego arcade construido con **React 18**, **HTML5 Canvas** y **Vite**. El motor de juego mantiene la esencia de los clásicos arcade con un bucle de renderizado imperativo sobre canvas, mientras que la interfaz se maneja con componentes React.
 
 ---
 
@@ -27,6 +25,7 @@ Sin motores gráficos ni librerías externas, cada mecánica, efecto visual y si
 * 👹 Enemigos perseguidores con comportamiento propio.
 * 🤝 Aliados temporales que combaten a tu lado.
 * 🌈 Potenciadores especiales con efectos únicos.
+* ⚡ **Rayo**: golpea todos los enemigos en pantalla, destruye los débiles y aturde a los grandes.
 * 🎯 Sistema de puntuación, combos y esquivas perfectas.
 * 🔊 Audio generado dinámicamente mediante Web Audio API.
 * 📳 Compatibilidad con vibración en dispositivos móviles.
@@ -46,13 +45,14 @@ Sin motores gráficos ni librerías externas, cada mecánica, efecto visual y si
 | Dash             | `Espacio` o `Shift` |
 | Pulso energético | `E` o `X`           |
 | Disparar         | `Q`                 |
+| **Rayo**         | `G`                 |
 | Pausar           | `P` o `Esc`         |
 | Silenciar audio  | `M`                 |
 | Iniciar partida  | `Enter`             |
 
 ### Dispositivos móviles
 
-* Mantén presionada la pantalla para mover la nave.
+* Desliza o mantén presionado para mover la nave.
 * Doble toque para ejecutar un Dash.
 * Botón táctil para Dash.
 * Botón táctil para liberar el Pulso Energético.
@@ -97,6 +97,14 @@ Libera una onda expansiva consumiendo una carga de energía.
 * Rompe conexiones magnéticas.
 * Despeja rutas críticas.
 * Genera bonificaciones de puntuación.
+
+### Rayo
+
+Golpea todos los enemigos en pantalla con un relámpago celestial.
+
+* Destruye enemigos débiles al instante.
+* Aturde a los enemigos grandes temporalmente.
+* Consume una carga de rayo (máx. 4).
 
 ### Invisibilidad
 
@@ -149,6 +157,8 @@ Y descubre cuánto tiempo puedes mantener tu órbita...
 
 ## 🛠️ Tecnologías utilizadas
 
+* **React 18**
+* **Vite 6**
 * **HTML5 Canvas**
 * **CSS3**
 * **JavaScript ES6+**
@@ -156,9 +166,14 @@ Y descubre cuánto tiempo puedes mantener tu órbita...
 * **LocalStorage**
 * **Vibration API**
 
-### Sin dependencias externas
+---
 
-Todo el juego fue desarrollado utilizando tecnologías web nativas, sin motores gráficos ni frameworks de terceros.
+## 📦 Desarrollo local
+
+```bash
+npm install
+npm run dev
+```
 
 ---
 
