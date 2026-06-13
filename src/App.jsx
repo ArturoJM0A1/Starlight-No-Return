@@ -110,6 +110,7 @@ export default function App() {
           stats={gameOverStats}
           engine={engineRef}
           onHome={() => setMode('instructions')}
+          user={user}
         />
       )}
 
