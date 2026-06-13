@@ -13,6 +13,12 @@
   --danger: #ff4b6e;
 }
 
+@font-face {
+  font-family: 'Euphorigenic';
+  src: url('/fonts/Euphorigenic.otf') format('opentype');
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }

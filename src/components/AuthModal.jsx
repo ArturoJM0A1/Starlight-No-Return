@@ -193,7 +193,7 @@ export default function AuthModal({ onClose, onAuth }) {
               <label style={label}>Correo electrónico</label>
               <input
                 style={errors.email ? inputError : input}
-                type="email"
+                type="email" 
                 placeholder="correo@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

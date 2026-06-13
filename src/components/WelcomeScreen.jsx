@@ -14,7 +14,7 @@ const goldBtn = {
 
 const ghostBtn = {
   marginLeft: 8, padding: '8px 14px', fontSize: '0.8rem', fontWeight: 600,
-  background: 'rgba(78, 231, 213, 0.15)', border: '1px solid rgba(78, 231, 213, 0.4)',
+  background: 'rgba(0, 80, 70, 0.4)', border: '1px solid rgba(0, 120, 100, 0.5)',
   borderRadius: 8, color: '#4ee7d5', cursor: 'pointer',
   transition: 'transform 0.2s, background 0.2s',
 };
@@ -50,12 +50,30 @@ export default function WelcomeScreen({ onNext, engine, onAuth, user }) {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
         }
+        @keyframes shimmerText {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
       `}</style>
       <div className="brand-row">
         <div className="mini-rocket" aria-hidden="true"></div>
         <span>Bienvenido, piloto</span>
       </div>
-      <h1 style={{ fontSize: 'clamp(2rem, 6vw, 5rem)' }}>Starlight: No Return</h1>
+      <h1 style={{
+        fontFamily: "'Euphorigenic', serif",
+        fontSize: 'clamp(2rem, 6vw, 5rem)',
+        padding: '14px 15px',
+        background: 'linear-gradient(135deg, #f6d365, #fda085, #f6d365)',
+        backgroundSize: '200% auto',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+        filter: 'drop-shadow(0 0 20px rgba(253,160,133,0.4)) drop-shadow(0 4px 8px rgba(0,0,0,0.5))',
+        animation: 'shimmerText 3s ease-in-out infinite',
+      }}>
+        Starlight: No Return
+      </h1>
       <h3>By: Arturo Juárez Monroy</h3>
       <div className="welcome-actions">
         <button id="nextButton" className="primary-button bounce-btn" onClick={onNext}>
@@ -91,8 +109,8 @@ export default function WelcomeScreen({ onNext, engine, onAuth, user }) {
         <button
           style={ghostBtn}
           onClick={() => setShowTop(true)}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(78, 231, 213, 0.3)'; e.currentTarget.style.transform = 'scale(1.04)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(78, 231, 213, 0.15)'; e.currentTarget.style.transform = 'scale(1)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0, 80, 70, 0.7)'; e.currentTarget.style.transform = 'scale(1.04)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0, 80, 70, 0.4)'; e.currentTarget.style.transform = 'scale(1)'; }}
         >
           Top
         </button>
