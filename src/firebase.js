@@ -5,8 +5,12 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
   signOut,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import {
+  getFirestore, doc, setDoc, getDoc, updateDoc,
+  collection, query, orderBy, limit, getDocs,
+} from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -40,6 +44,7 @@ export async function registerUser(username, email, password) {
     setDoc(doc(db, 'profiles', cred.user.uid), {
       username,
       email,
+      bestScore: 0,
       createdAt: Date.now(),
     }),
     setDoc(doc(db, 'usernames', username.toLowerCase()), {
@@ -68,6 +73,39 @@ export async function getUserProfile(uid) {
   if (!db) required();
   const snap = await getDoc(doc(db, 'profiles', uid));
   return snap.exists() ? snap.data() : null;
+}
+
+export async function saveBestScore(uid, score) {
+  if (!db) required();
+  const ref = doc(db, 'profiles', uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const current = snap.data().bestScore || 0;
+  if (score > current) {
+    await updateDoc(ref, { bestScore: score });
+  }
+}
+
+export async function getTopPlayers(count = 50) {
+  if (!db) required();
+  const q = query(collection(db, 'profiles'), orderBy('bestScore', 'desc'), limit(count));
+  const snap = await getDocs(q);
+  return snap.docs
+    .filter((d) => d.data().bestScore > 0)
+    .map((d) => ({
+      uid: d.id,
+      username: d.data().username,
+      bestScore: d.data().bestScore || 0,
+    }));
+}
+
+export async function resetPassword(username, email) {
+  if (!db || !auth) required();
+  const map = await getDoc(doc(db, 'usernames', username.toLowerCase()));
+  if (!map.exists()) throw { code: 'auth/user-not-found', message: 'Usuario no encontrado' };
+  const data = map.data();
+  if (data.email !== email) throw { code: 'auth/email-mismatch', message: 'El correo no coincide con el usuario' };
+  await sendPasswordResetEmail(auth, email);
 }
 
 export { auth, db };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { registerUser, loginUser } from '../firebase';
+import { registerUser, loginUser, getUserProfile, resetPassword } from '../firebase';
 
 const VALID_USERNAME = /^@[a-zA-Z0-9]+$/;
 
@@ -45,6 +45,8 @@ const inputError = { ...input, borderColor: '#ff4b6e' };
 
 const errorMsg = { fontSize: '0.75rem', color: '#ff4b6e', marginTop: 4 };
 
+const successMsg = { fontSize: '0.8rem', color: '#4ee7d5', marginTop: 12, textAlign: 'center' };
+
 const btnPrimary = {
   width: '100%', padding: '12px', fontSize: '0.95rem', fontWeight: 700,
   background: 'linear-gradient(135deg, #f6d365, #fda085)',
@@ -69,17 +71,51 @@ const closeBtn = {
   fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1,
 };
 
-export default function AuthModal({ onClose }) {
+export default function AuthModal({ onClose, onAuth }) {
   const [mode, setMode] = useState('login');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  function resetForm() {
+    setUsername('');
+    setEmail('');
+    setPassword('');
+    setErrors({});
+    setSent(false);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     const errs = {};
+
+    if (mode === 'forgot') {
+      if (!username) errs.username = 'Campo obligatorio';
+      else { const u = validateUsername(username); if (u) errs.username = u; }
+      if (!email) errs.email = 'Campo obligatorio';
+      setErrors(errs);
+      if (Object.keys(errs).length > 0) return;
+
+      setLoading(true);
+      try {
+        await resetPassword(username, email);
+        setSent(true);
+      } catch (err) {
+        const map = {
+          'auth/user-not-found': 'Usuario no encontrado',
+          'auth/email-mismatch': 'El correo no coincide con el usuario',
+          'auth/invalid-email': 'Correo inválido',
+        };
+        setErrors({ firebase: map[err.code] || err.message });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     const uErr = validateUsername(username);
     if (uErr) errs.username = uErr;
     if (!password) errs.password = 'Campo obligatorio';
@@ -89,11 +125,19 @@ export default function AuthModal({ onClose }) {
 
     setLoading(true);
     try {
+      let user;
       if (mode === 'register') {
-        await registerUser(username, email, password);
+        user = await registerUser(username, email, password);
       } else {
-        await loginUser(username, password);
+        user = await loginUser(username, password);
       }
+      const profile = await getUserProfile(user.uid);
+      if (onAuth) onAuth({
+        uid: user.uid,
+        username: user.displayName || username,
+        email: profile?.email || user.email,
+        bestScore: profile?.bestScore || 0,
+      });
       onClose();
     } catch (err) {
       const map = {
@@ -114,24 +158,28 @@ export default function AuthModal({ onClose }) {
       <div style={card}>
         <button style={closeBtn} onClick={onClose} aria-label="Cerrar">&times;</button>
         <div style={title}>
-          {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+          {mode === 'login' ? 'Iniciar sesión' : mode === 'forgot' ? 'Restablecer contraseña' : 'Crear cuenta'}
         </div>
 
         <form onSubmit={handleSubmit}>
-          <label style={label}>Nombre de usuario</label>
-          <input
-            style={errors.username ? inputError : input}
-            type="text"
-            placeholder="@usuario"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            maxLength={15}
-            autoComplete="username"
-          />
-          {errors.username && <div style={errorMsg}>{errors.username}</div>}
-
-          {mode === 'register' && (
+          {mode === 'forgot' ? (
             <>
+              <p style={{ fontSize: '0.8rem', color: '#b8c4d9', textAlign: 'center', marginBottom: 8 }}>
+                Para restablecer tu contraseña ingresa tu nombre de usuario y correo
+              </p>
+
+              <label style={label}>Nombre de usuario</label>
+              <input
+                style={errors.username ? inputError : input}
+                type="text"
+                placeholder="@usuario"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                maxLength={15}
+                autoComplete="username"
+              />
+              {errors.username && <div style={errorMsg}>{errors.username}</div>}
+
               <label style={label}>Correo electrónico</label>
               <input
                 style={errors.email ? inputError : input}
@@ -142,39 +190,85 @@ export default function AuthModal({ onClose }) {
                 autoComplete="email"
               />
               {errors.email && <div style={errorMsg}>{errors.email}</div>}
+
+              {errors.firebase && <div style={{ ...errorMsg, marginTop: 12, textAlign: 'center' }}>{errors.firebase}</div>}
+              {sent && <div style={successMsg}>Correo de restablecimiento enviado. Revisa tu bandeja de entrada.</div>}
+
+              {!sent && (
+                <button type="submit" style={{ ...btnPrimary, opacity: loading ? 0.6 : 1 }} disabled={loading}>
+                  {loading ? '...' : 'Enviar correo'}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <label style={label}>Nombre de usuario</label>
+              <input
+                style={errors.username ? inputError : input}
+                type="text"
+                placeholder="@usuario"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                maxLength={15}
+                autoComplete="username"
+              />
+              {errors.username && <div style={errorMsg}>{errors.username}</div>}
+
+              {mode === 'register' && (
+                <>
+                  <label style={label}>Correo electrónico</label>
+                  <input
+                    style={errors.email ? inputError : input}
+                    type="email"
+                    placeholder="correo@ejemplo.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                  />
+                  {errors.email && <div style={errorMsg}>{errors.email}</div>}
+                </>
+              )}
+
+              <label style={label}>Contraseña</label>
+              <input
+                style={errors.password ? inputError : input}
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              />
+              {errors.password && <div style={errorMsg}>{errors.password}</div>}
+
+              {errors.firebase && <div style={{ ...errorMsg, marginTop: 12, textAlign: 'center' }}>{errors.firebase}</div>}
+
+              <button type="submit" style={{ ...btnPrimary, opacity: loading ? 0.6 : 1 }} disabled={loading}>
+                {loading ? '...' : (mode === 'login' ? 'Entrar' : 'Registrarse')}
+              </button>
             </>
           )}
-
-          <label style={label}>Contraseña</label>
-          <input
-            style={errors.password ? inputError : input}
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          />
-          {errors.password && <div style={errorMsg}>{errors.password}</div>}
-
-          {errors.firebase && <div style={{ ...errorMsg, marginTop: 12, textAlign: 'center' }}>{errors.firebase}</div>}
-
-          <button type="submit" style={{ ...btnPrimary, opacity: loading ? 0.6 : 1 }} disabled={loading}>
-            {loading ? '...' : (mode === 'login' ? 'Entrar' : 'Registrarse')}
-          </button>
         </form>
 
         <div style={toggleText}>
           {mode === 'login' ? (
             <>
               ¿No tienes cuenta?{' '}
-              <span style={toggleLink} onClick={() => { setMode('register'); setErrors({}); }}>
+              <span style={toggleLink} onClick={() => { setMode('register'); resetForm(); }}>
                 Regístrate
               </span>
+              <br />
+              <span style={{ ...toggleLink, fontSize: '0.75rem' }} onClick={() => { setMode('forgot'); resetForm(); }}>
+                Olvidé mi contraseña
+              </span>
             </>
+          ) : mode === 'forgot' ? (
+            <span style={toggleLink} onClick={() => { setMode('login'); resetForm(); }}>
+              Volver a iniciar sesión
+            </span>
           ) : (
             <>
               ¿Ya tienes cuenta?{' '}
-              <span style={toggleLink} onClick={() => { setMode('login'); setErrors({}); }}>
+              <span style={toggleLink} onClick={() => { setMode('login'); resetForm(); }}>
                 Inicia sesión
               </span>
             </>
