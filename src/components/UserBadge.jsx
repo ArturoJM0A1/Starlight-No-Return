@@ -17,7 +17,6 @@ export default function UserBadge({ user }) {
   return (
     <div style={style}>
       <div>{user.username}</div>
-      <div>Mejor: {user.bestScore.toLocaleString('es-MX')}</div>
     </div>
   );
 }

@@ -19,21 +19,47 @@ const ghostBtn = {
   transition: 'transform 0.2s, background 0.2s',
 };
 
-export default function WelcomeScreen({ onNext, engine, onAuth }) {
+export default function WelcomeScreen({ onNext, engine, onAuth, user }) {
   const [showAuth, setShowAuth] = useState(false);
   const [showTop, setShowTop] = useState(false);
 
   return (
     <section id="welcomeScreen" className="screen screen-welcome">
+      <style>{`
+        .bounce-btn {
+          background: linear-gradient(135deg, #1a73e8, #4a90d9, #1a73e8) !important;
+          background-size: 200% auto !important;
+          animation: bounce 1.2s ease-in-out infinite !important;
+          position: relative !important;
+          overflow: hidden !important;
+        }
+        .bounce-btn::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(253, 160, 133, 0.35), transparent);
+          background-size: 200% 100%;
+          animation: shimmer 2s ease-in-out infinite;
+          pointer-events: none;
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+      `}</style>
       <div className="brand-row">
         <div className="mini-rocket" aria-hidden="true"></div>
         <span>Bienvenido, piloto</span>
       </div>
-      <h1>Starlight: No Return</h1>
+      <h1 style={{ fontSize: 'clamp(2rem, 6vw, 5rem)' }}>Starlight: No Return</h1>
       <h3>By: Arturo Juárez Monroy</h3>
       <div className="welcome-actions">
-        <button id="nextButton" className="primary-button" onClick={onNext}>
-          Siguiente
+        <button id="nextButton" className="primary-button bounce-btn" onClick={onNext}>
+          Continuar
         </button>
         <button
           id="muteButtonIntro"
@@ -44,7 +70,16 @@ export default function WelcomeScreen({ onNext, engine, onAuth }) {
           Sonido
         </button>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+      {user ? (
+        <p style={{ marginTop: 18, fontSize: '0.8rem', color: '#b8c4d9', textAlign: 'center' }}>
+          Hola <span style={{ color: '#f6d365', fontWeight: 600 }}>{user.username}</span>
+        </p>
+      ) : (
+        <p style={{ marginTop: 18, fontSize: '0.8rem', color: '#b8c4d9', textAlign: 'center' }}>
+          ¿No te has logeado? <span style={{ color: '#f6d365', fontWeight: 600 }}>Regístrate para competir</span>
+        </p>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
         <button
           style={goldBtn}
           onClick={() => setShowAuth(true)}
@@ -59,7 +94,7 @@ export default function WelcomeScreen({ onNext, engine, onAuth }) {
           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(78, 231, 213, 0.3)'; e.currentTarget.style.transform = 'scale(1.04)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(78, 231, 213, 0.15)'; e.currentTarget.style.transform = 'scale(1)'; }}
         >
-          Top Global
+          Top
         </button>
       </div>
       <footer className="contact-footer">

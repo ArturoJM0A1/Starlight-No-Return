@@ -79,6 +79,8 @@ export default function AuthModal({ onClose, onAuth }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [welcomeUser, setWelcomeUser] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   function resetForm() {
     setUsername('');
@@ -86,6 +88,7 @@ export default function AuthModal({ onClose, onAuth }) {
     setPassword('');
     setErrors({});
     setSent(false);
+    setShowPassword(false);
   }
 
   async function handleSubmit(e) {
@@ -138,7 +141,8 @@ export default function AuthModal({ onClose, onAuth }) {
         email: profile?.email || user.email,
         bestScore: profile?.bestScore || 0,
       });
-      onClose();
+      setWelcomeUser(user.displayName || username);
+      setTimeout(() => onClose(), 2000);
     } catch (err) {
       const map = {
         'auth/email-already-in-use': 'El correo ya está registrado',
@@ -161,8 +165,14 @@ export default function AuthModal({ onClose, onAuth }) {
           {mode === 'login' ? 'Iniciar sesión' : mode === 'forgot' ? 'Restablecer contraseña' : 'Crear cuenta'}
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {mode === 'forgot' ? (
+        {welcomeUser ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ fontSize: '2rem', marginBottom: 12 }}>🚀</div>
+            <div style={{ fontSize: '1.1rem', color: '#f8fbff', fontWeight: 700 }}>Bienvenido {welcomeUser}</div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            {mode === 'forgot' ? (
             <>
               <p style={{ fontSize: '0.8rem', color: '#b8c4d9', textAlign: 'center', marginBottom: 8 }}>
                 Para restablecer tu contraseña ingresa tu nombre de usuario y correo
@@ -230,14 +240,40 @@ export default function AuthModal({ onClose, onAuth }) {
               )}
 
               <label style={label}>Contraseña</label>
-              <input
-                style={errors.password ? inputError : input}
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  style={{ ...(errors.password ? inputError : input), paddingRight: 40 }}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword((p) => !p)}
+                  style={{
+                    position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 0, cursor: 'pointer', padding: 4,
+                    color: '#b8c4d9', fontSize: '1.1rem', lineHeight: 1,
+                  }}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPassword ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
               {errors.password && <div style={errorMsg}>{errors.password}</div>}
 
               {errors.firebase && <div style={{ ...errorMsg, marginTop: 12, textAlign: 'center' }}>{errors.firebase}</div>}
@@ -248,6 +284,7 @@ export default function AuthModal({ onClose, onAuth }) {
             </>
           )}
         </form>
+        )}
 
         <div style={toggleText}>
           {mode === 'login' ? (
