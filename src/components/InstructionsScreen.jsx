@@ -15,7 +15,7 @@ export default function InstructionsScreen({ onBack, engine }) {
       <div className="instruction-grid" aria-label="Mecánicas del juego">
         <article>
           <strong>🎮 Movimiento</strong>
-          <span>Flechas / WASD.</span>
+          <span>Flechas / WASD / Mouse.</span>
         </article>
         <article>
           <strong>🔫 Disparar</strong>
