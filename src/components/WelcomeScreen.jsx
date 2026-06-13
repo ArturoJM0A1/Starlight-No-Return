@@ -13,7 +13,7 @@ const goldBtn = {
 };
 
 const ghostBtn = {
-  marginLeft: 8, padding: '8px 14px', fontSize: '0.8rem', fontWeight: 600,
+  marginLeft: 8, padding: '4px 14px', fontSize: '0.8rem', fontWeight: 600,
   background: 'rgba(0, 80, 70, 0.4)', border: '1px solid rgba(0, 120, 100, 0.5)',
   borderRadius: 8, color: '#4ee7d5', cursor: 'pointer',
   transition: 'transform 0.2s, background 0.2s',
@@ -44,7 +44,7 @@ export default function WelcomeScreen({ onNext, engine, onAuth, user }) {
         }
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-8px); }
+           50% { transform: translateY(-18px); }
         }
         @keyframes shimmer {
           0% { background-position: -200% 0; }
@@ -94,7 +94,7 @@ export default function WelcomeScreen({ onNext, engine, onAuth, user }) {
         </p>
       ) : (
         <p style={{ marginTop: 18, fontSize: '0.8rem', color: '#b8c4d9', textAlign: 'center' }}>
-          ¿No te has logeado? <span style={{ color: '#f6d365', fontWeight: 600 }}>Regístrate para competir</span>
+          ¿No te has logeado? <span style={{ color: '#f6d365', fontWeight: 600 }}>Regístrate para competir 👇</span>
         </p>
       )}
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>

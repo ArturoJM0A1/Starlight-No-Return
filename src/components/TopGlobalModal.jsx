@@ -10,7 +10,7 @@ const overlay = {
 const card = {
   background: 'linear-gradient(135deg, #0f0c29, #1a1145, #0d2137)',
   border: '1px solid rgba(253, 160, 133, 0.25)',
-  borderRadius: 16, padding: '28px 24px', width: 340,
+  borderRadius: 16, padding: '28px 24px', width: 420,
   maxWidth: 'calc(100% - 32px)', maxHeight: '70vh',
   boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 30px rgba(253, 160, 133, 0.15)',
   display: 'flex', flexDirection: 'column',
@@ -51,8 +51,8 @@ const empty = {
 
 const closeBtn = {
   position: 'absolute', top: 12, right: 16,
-  background: 'none', border: 0, color: '#b8c4d9',
-  fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1,
+  background: 'none', border: 0, color: '#ff6b6b',
+  fontSize: '1.8rem', cursor: 'pointer', lineHeight: 1,
 };
 
 export default function TopGlobalModal({ onClose }) {
