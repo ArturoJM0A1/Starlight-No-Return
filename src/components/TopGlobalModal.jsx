@@ -75,8 +75,8 @@ const champImg = {
 };
 
 const champMsg = {
-  fontSize: '0.9rem', color: '#f6d365', textAlign: 'center',
-  marginTop: 4, lineHeight: 1.3, fontWeight: 600,
+  fontSize: '1rem', color: '#f6d365', textAlign: 'center',
+  marginTop: 12, lineHeight: 1.3, fontWeight: 600,
 };
 
 export default function TopGlobalModal({ onClose }) {
