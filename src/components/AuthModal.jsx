@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { registerUser, loginUser } from '../firebase';
 
 const VALID_USERNAME = /^@[a-zA-Z0-9]+$/;
 
@@ -53,12 +54,6 @@ const btnPrimary = {
   boxShadow: '0 0 15px rgba(253, 160, 133, 0.3)',
 };
 
-const btnGhost = {
-  width: '100%', padding: '10px', fontSize: '0.85rem',
-  background: 'transparent', border: '1px solid rgba(255,255,255,0.15)',
-  borderRadius: 8, color: '#b8c4d9', cursor: 'pointer', marginTop: 8,
-};
-
 const toggleText = {
   textAlign: 'center', fontSize: '0.8rem', color: '#b8c4d9', marginTop: 16,
 };
@@ -80,19 +75,37 @@ export default function AuthModal({ onClose }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     const errs = {};
     const uErr = validateUsername(username);
     if (uErr) errs.username = uErr;
     if (!password) errs.password = 'Campo obligatorio';
-    if (mode === 'register') {
-      if (!email) errs.email = 'Campo obligatorio';
-    }
+    if (mode === 'register' && !email) errs.email = 'Campo obligatorio';
     setErrors(errs);
-    if (Object.keys(errs).length === 0) {
-      // placeholder — implementación futura
+    if (Object.keys(errs).length > 0) return;
+
+    setLoading(true);
+    try {
+      if (mode === 'register') {
+        await registerUser(username, email, password);
+      } else {
+        await loginUser(username, password);
+      }
+      onClose();
+    } catch (err) {
+      const map = {
+        'auth/email-already-in-use': 'El correo ya está registrado',
+        'auth/invalid-email': 'Correo inválido',
+        'auth/user-not-found': 'Usuario no encontrado',
+        'auth/wrong-password': 'Contraseña incorrecta',
+        'auth/invalid-credential': 'Credenciales inválidas',
+      };
+      setErrors({ firebase: map[err.code] || err.message });
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -143,8 +156,10 @@ export default function AuthModal({ onClose }) {
           />
           {errors.password && <div style={errorMsg}>{errors.password}</div>}
 
-          <button type="submit" style={btnPrimary}>
-            {mode === 'login' ? 'Entrar' : 'Registrarse'}
+          {errors.firebase && <div style={{ ...errorMsg, marginTop: 12, textAlign: 'center' }}>{errors.firebase}</div>}
+
+          <button type="submit" style={{ ...btnPrimary, opacity: loading ? 0.6 : 1 }} disabled={loading}>
+            {loading ? '...' : (mode === 'login' ? 'Entrar' : 'Registrarse')}
           </button>
         </form>
 
