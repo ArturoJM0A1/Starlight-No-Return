@@ -75,6 +75,9 @@ export default function WelcomeScreen({ onNext, engine, onAuth, user }) {
         Starlight: No Return
       </h1>
       <h3>By: Arturo Juárez Monroy</h3>
+      <p style={{ marginTop: 2, fontSize: '0.8rem', color: 'rgba(246, 211, 101, 0.8)', textAlign: 'center' }}>
+        Juego para computadora (no disponible en celular)
+      </p>
       <div className="welcome-actions">
         <button id="nextButton" className="primary-button bounce-btn" onClick={onNext}>
           Continuar
